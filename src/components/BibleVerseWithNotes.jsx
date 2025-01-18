@@ -29,8 +29,10 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
       }
     };
 
-    loadNotes();
-  }, [verse.book, verse.chapter, verse.verse, fetchVerseNotes]); // Added fetchVerseNotes to dependency array
+    if (showQuickNote) {
+      loadNotes();
+    }
+  }, [verse.book, verse.chapter, verse.verse, fetchVerseNotes, showQuickNote]);
 
   const handleQuickNoteClick = () => {
     setShowQuickNote(!showQuickNote);
