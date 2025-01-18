@@ -1,5 +1,5 @@
 // src/components/bible/BibleReader.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useBible } from '../../contexts/BibleContext';
 import BibleVerseWithNotes from '../BibleVerseWithNotes';
 import { X, Edit2, Check, XCircle } from 'lucide-react';
@@ -58,8 +58,18 @@ const FriendNotesList = ({ notes, initialCount = 2 }) => {
 };
 
 const StudyNotesSidePanel = ({ verse, onClose }) => {
+  console.log('StudyNotesSidePanel rendering', new Date().toISOString());
+  
   const { user } = useAuth();
   const { fetchVerseNotes, saveStudyNote, isLoading: isSavingNote } = useNotes();
+  
+  // Memoize the note functions and state to prevent unnecessary rerenders
+  const memoizedNotesFunctions = useMemo(() => ({
+    fetchVerseNotes,
+    saveStudyNote,
+    isSavingNote
+  }), [fetchVerseNotes, saveStudyNote, isSavingNote]);
+  
   const [studyNote, setStudyNote] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedNote, setEditedNote] = useState('');
@@ -69,11 +79,13 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
 
   // Memoize the loadNotes function
   const loadNotes = useCallback(async () => {
+    console.log('loadNotes called', new Date().toISOString());
     if (!verse) return;
     
     setIsLoadingNotes(true);
     try {
-      const notes = await fetchVerseNotes(verse.book, verse.chapter, verse.verse);
+      const notes = await memoizedNotesFunctions.fetchVerseNotes(verse.book, verse.chapter, verse.verse);
+      console.log('Notes fetched:', notes.length, 'notes');
       
       // Find user's own study note
       const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
@@ -89,14 +101,16 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
       const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
       setFriendNotes(friendStudyNotes);
     } catch (err) {
+      console.error('Error loading notes:', err);
       setError('Failed to load notes');
     } finally {
       setIsLoadingNotes(false);
     }
-  }, [verse?.book, verse?.chapter, verse?.verse, fetchVerseNotes]);
+  }, [verse?.book, verse?.chapter, verse?.verse, memoizedNotesFunctions]);
 
   // Only fetch notes when the panel first opens or verse changes
   useEffect(() => {
+    console.log('Notes effect running', new Date().toISOString());
     loadNotes();
   }, [loadNotes]);
 
@@ -109,7 +123,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     if (!verse) return;
     
     try {
-      const savedNote = await saveStudyNote({
+      const savedNote = await memoizedNotesFunctions.saveStudyNote({
         book: verse.book,
         chapter: String(verse.chapter),
         verse: String(verse.verse),
@@ -131,13 +145,37 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     } catch (err) {
       setError(err.message);
     }
-  }, [verse, editedNote, saveStudyNote, loadNotes]);
+  }, [verse, editedNote, memoizedNotesFunctions, loadNotes]);
 
   const handleCancel = useCallback(() => {
     setEditedNote(studyNote);
     setIsEditing(false);
     setError(null);
   }, [studyNote]);
+
+  // Memoize the friend notes list to prevent unnecessary rerenders
+  const memoizedFriendNotesList = useMemo(() => (
+    user?.can_view_friend_notes && (
+      <div className="border-t pt-4">
+        <h4 className="text-sm font-medium text-gray-600 mb-2">Friend's Notes</h4>
+        {isLoadingNotes ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-24 bg-gray-200 rounded"></div>
+            <div className="h-24 bg-gray-200 rounded"></div>
+          </div>
+        ) : friendNotes.length > 0 ? (
+          <FriendNotesList 
+            notes={friendNotes}
+            initialCount={2}
+          />
+        ) : (
+          <div className="text-gray-500 text-sm italic text-center py-4 border rounded">
+            No friend notes for this verse yet
+          </div>
+        )}
+      </div>
+    )
+  ), [user?.can_view_friend_notes, isLoadingNotes, friendNotes]);
 
   return (
     <div className="w-96 border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto">
@@ -217,26 +255,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
         </div>
 
         {/* Friend's Notes Section */}
-        {user?.can_view_friend_notes && (
-          <div className="border-t pt-4">
-            <h4 className="text-sm font-medium text-gray-600 mb-2">Friend's Notes</h4>
-            {isLoadingNotes ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-24 bg-gray-200 rounded"></div>
-                <div className="h-24 bg-gray-200 rounded"></div>
-              </div>
-            ) : friendNotes.length > 0 ? (
-              <FriendNotesList 
-                notes={friendNotes}
-                initialCount={2}
-              />
-            ) : (
-              <div className="text-gray-500 text-sm italic text-center py-4 border rounded">
-                No friend notes for this verse yet
-              </div>
-            )}
-          </div>
-        )}
+        {memoizedFriendNotesList}
 
         {/* AI Insights Section */}
         <div className="border-t pt-4">
