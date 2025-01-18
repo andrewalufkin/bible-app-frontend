@@ -33,7 +33,7 @@ const SearchPage = () => {
       }
 
       const response = await fetch(
-        `http://localhost:5001/api/bible/search?q=${encodeURIComponent(query)}`,
+        `${process.env.REACT_APP_BACKEND_URL}/api/bible/search?q=${encodeURIComponent(query)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`

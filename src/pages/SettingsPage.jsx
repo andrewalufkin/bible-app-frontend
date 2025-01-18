@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SettingsPage = () => {
   const { user, logout, updateUser } = useAuth();

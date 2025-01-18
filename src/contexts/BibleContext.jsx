@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const BibleContext = createContext();
 
-const API_BASE_URL = 'http://localhost:5001/api/bible';
+const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
 
 export const BibleProvider = ({ children }) => {
   const [books, setBooks] = useState([]);

@@ -1,7 +1,7 @@
 // src/pages/FriendsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const LoadingState = () => (
   <div className="animate-pulse space-y-4">
