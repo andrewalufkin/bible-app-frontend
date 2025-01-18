@@ -58,33 +58,24 @@ const FriendNotesList = ({ notes, initialCount = 2 }) => {
 };
 
 const StudyNotesSidePanel = ({ verse, onClose }) => {
+
   console.log('StudyNotesSidePanel rendering', new Date().toISOString());
   
   const { user } = useAuth();
-  const { fetchVerseNotes, saveStudyNote, isLoading: isSavingNote } = useNotes();
-  
-  // Memoize the note functions and state to prevent unnecessary rerenders
-  const memoizedNotesFunctions = useMemo(() => ({
-    fetchVerseNotes,
-    saveStudyNote,
-    isSavingNote
-  }), [fetchVerseNotes, saveStudyNote, isSavingNote]);
+  const { fetchVerseNotes, saveStudyNote, isLoading: { studyNote: isSavingNote, fetch: isLoadingNotes }, error: { studyNote: studyNoteError, fetch: fetchError }} = useNotes();
   
   const [studyNote, setStudyNote] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedNote, setEditedNote] = useState('');
   const [error, setError] = useState(null);
   const [friendNotes, setFriendNotes] = useState([]);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(true);
 
   // Memoize the loadNotes function
   const loadNotes = useCallback(async () => {
-    console.log('loadNotes called', new Date().toISOString());
     if (!verse) return;
     
-    setIsLoadingNotes(true);
     try {
-      const notes = await memoizedNotesFunctions.fetchVerseNotes(verse.book, verse.chapter, verse.verse);
+      const notes = await fetchVerseNotes(verse.book, verse.chapter, verse.verse);
       console.log('Notes fetched:', notes.length, 'notes');
       
       // Find user's own study note
@@ -103,10 +94,8 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     } catch (err) {
       console.error('Error loading notes:', err);
       setError('Failed to load notes');
-    } finally {
-      setIsLoadingNotes(false);
     }
-  }, [verse?.book, verse?.chapter, verse?.verse, memoizedNotesFunctions]);
+  }, [verse?.book, verse?.chapter, verse?.verse, fetchVerseNotes]);
 
   // Only fetch notes when the panel first opens or verse changes
   useEffect(() => {
@@ -137,7 +126,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     if (!verse) return;
     
     try {
-      const savedNote = await memoizedNotesFunctions.saveStudyNote({
+      const savedNote = await saveStudyNote({
         book: verse.book,
         chapter: String(verse.chapter),
         verse: String(verse.verse),
@@ -159,7 +148,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     } catch (err) {
       setError(err.message);
     }
-  }, [verse, editedNote, memoizedNotesFunctions, loadNotes]);
+  }, [verse, editedNote, saveStudyNote, loadNotes]);
 
   const handleCancel = useCallback(() => {
     setEditedNote(studyNote);

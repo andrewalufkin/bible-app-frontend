@@ -3,17 +3,28 @@ import { useState, useCallback } from 'react';
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const useNotes = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  // Move these states to be specific to each operation
+  const [loadingStates, setLoadingStates] = useState({
+    fetch: false,
+    studyNote: false,
+    quickNote: false
+  });
+  const [errors, setErrors] = useState({
+    fetch: null,
+    studyNote: null,
+    quickNote: null
+  });
 
+  // Memoize headers function
   const getAuthHeaders = useCallback(() => ({
     'Authorization': `Bearer ${localStorage.getItem('token')}`,
     'Content-Type': 'application/json'
   }), []);
 
   const fetchVerseNotes = useCallback(async (book, chapter, verse) => {
-    setIsLoading(true);
-    setError(null);
+    setLoadingStates(prev => ({ ...prev, fetch: true }));
+    setErrors(prev => ({ ...prev, fetch: null }));
+    
     try {
       const response = await fetch(
         `${API_BASE_URL}/notes/verse/${book}/${chapter}/${verse}`,
@@ -29,16 +40,17 @@ export const useNotes = () => {
       const notes = await response.json();
       return notes;
     } catch (err) {
-      setError(err.message);
+      setErrors(prev => ({ ...prev, fetch: err.message }));
       return [];
     } finally {
-      setIsLoading(false);
+      setLoadingStates(prev => ({ ...prev, fetch: false }));
     }
   }, [getAuthHeaders]);
 
   const saveStudyNote = useCallback(async (noteData) => {
-    setIsLoading(true);
-    setError(null);
+    setLoadingStates(prev => ({ ...prev, studyNote: true }));
+    setErrors(prev => ({ ...prev, studyNote: null }));
+    
     try {
       const response = await fetch(
         `${API_BASE_URL}/notes/study`,
@@ -56,16 +68,17 @@ export const useNotes = () => {
 
       return await response.json();
     } catch (err) {
-      setError(err.message);
+      setErrors(prev => ({ ...prev, studyNote: err.message }));
       throw err;
     } finally {
-      setIsLoading(false);
+      setLoadingStates(prev => ({ ...prev, studyNote: false }));
     }
   }, [getAuthHeaders]);
 
   const saveQuickNote = useCallback(async (noteData) => {
-    setIsLoading(true);
-    setError(null);
+    setLoadingStates(prev => ({ ...prev, quickNote: true }));
+    setErrors(prev => ({ ...prev, quickNote: null }));
+    
     try {
       const response = await fetch(
         `${API_BASE_URL}/notes/quick`,
@@ -83,18 +96,26 @@ export const useNotes = () => {
 
       return await response.json();
     } catch (err) {
-      setError(err.message);
+      setErrors(prev => ({ ...prev, quickNote: err.message }));
       throw err;
     } finally {
-      setIsLoading(false);
+      setLoadingStates(prev => ({ ...prev, quickNote: false }));
     }
   }, [getAuthHeaders]);
 
   return {
-    isLoading,
-    error,
+    isLoading: {
+      fetch: loadingStates.fetch,
+      studyNote: loadingStates.studyNote,
+      quickNote: loadingStates.quickNote
+    },
+    error: {
+      fetch: errors.fetch,
+      studyNote: errors.studyNote,
+      quickNote: errors.quickNote
+    },
     fetchVerseNotes,
     saveStudyNote,
     saveQuickNote
   };
-}; 
+};
