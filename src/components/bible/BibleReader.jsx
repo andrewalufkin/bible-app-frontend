@@ -1,5 +1,5 @@
 // src/components/bible/BibleReader.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useBible } from '../../contexts/BibleContext';
 import BibleVerseWithNotes from '../BibleVerseWithNotes';
 import { X, Edit2, Check, XCircle } from 'lucide-react';
@@ -67,42 +67,47 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   const [friendNotes, setFriendNotes] = useState([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
 
+  // Memoize the loadNotes function
+  const loadNotes = useCallback(async () => {
+    if (!verse) return;
+    
+    setIsLoadingNotes(true);
+    try {
+      const notes = await fetchVerseNotes(verse.book, verse.chapter, verse.verse);
+      
+      // Find user's own study note
+      const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
+      if (ownStudyNote) {
+        setStudyNote(ownStudyNote.content);
+        setEditedNote(ownStudyNote.content);
+      } else {
+        setStudyNote('');
+        setEditedNote('');
+      }
+
+      // Filter out friend's study notes
+      const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
+      setFriendNotes(friendStudyNotes);
+    } catch (err) {
+      setError('Failed to load notes');
+    } finally {
+      setIsLoadingNotes(false);
+    }
+  }, [verse?.book, verse?.chapter, verse?.verse, fetchVerseNotes]);
+
   // Only fetch notes when the panel first opens or verse changes
   useEffect(() => {
-    const loadNotes = async () => {
-      setIsLoadingNotes(true);
-      try {
-        const notes = await fetchVerseNotes(verse.book, verse.chapter, verse.verse);
-        
-        // Find user's own study note
-        const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
-        if (ownStudyNote) {
-          setStudyNote(ownStudyNote.content);
-          setEditedNote(ownStudyNote.content);
-        } else {
-          setStudyNote('');
-          setEditedNote('');
-        }
-
-        // Filter out friend's study notes
-        const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
-        setFriendNotes(friendStudyNotes);
-      } catch (err) {
-        setError('Failed to load notes');
-      } finally {
-        setIsLoadingNotes(false);
-      }
-    };
-
     loadNotes();
-  }, [verse.book, verse.chapter, verse.verse]); // Removed fetchVerseNotes from dependencies
+  }, [loadNotes]);
 
-  const handleEdit = () => {
+  const handleEdit = useCallback(() => {
     setIsEditing(true);
     setError(null);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    if (!verse) return;
+    
     try {
       const savedNote = await saveStudyNote({
         book: verse.book,
@@ -111,27 +116,28 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
         content: editedNote.trim()
       });
       
-      // If we got a response with content, update the note
       if (savedNote.content) {
         setStudyNote(savedNote.content);
       } else {
-        // If the note was deleted (empty content), clear the state
         setStudyNote('');
         setEditedNote('');
       }
       
       setIsEditing(false);
       setError(null);
+      
+      // Reload notes to get updated friend notes
+      loadNotes();
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [verse, editedNote, saveStudyNote, loadNotes]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setEditedNote(studyNote);
     setIsEditing(false);
     setError(null);
-  };
+  }, [studyNote]);
 
   return (
     <div className="w-96 border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto">
