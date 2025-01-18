@@ -95,7 +95,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     };
 
     loadNotes();
-  }, [verse.book, verse.chapter, verse.verse, fetchVerseNotes]); // Added fetchVerseNotes to dependency array
+  }, [verse.book, verse.chapter, verse.verse]); // Removed fetchVerseNotes from dependencies
 
   const handleEdit = () => {
     setIsEditing(true);
