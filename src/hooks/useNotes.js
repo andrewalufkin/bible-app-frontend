@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -6,12 +6,12 @@ export const useNotes = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const getAuthHeaders = () => ({
+  const getAuthHeaders = useCallback(() => ({
     'Authorization': `Bearer ${localStorage.getItem('token')}`,
     'Content-Type': 'application/json'
-  });
+  }), []);
 
-  const fetchVerseNotes = async (book, chapter, verse) => {
+  const fetchVerseNotes = useCallback(async (book, chapter, verse) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -34,9 +34,9 @@ export const useNotes = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
-  const saveStudyNote = async (noteData) => {
+  const saveStudyNote = useCallback(async (noteData) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -61,9 +61,9 @@ export const useNotes = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
-  const saveQuickNote = async (noteData) => {
+  const saveQuickNote = useCallback(async (noteData) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -88,7 +88,7 @@ export const useNotes = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getAuthHeaders]);
 
   return {
     isLoading,

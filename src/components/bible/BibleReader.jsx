@@ -77,42 +77,57 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   const [friendNotes, setFriendNotes] = useState([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
 
-  // Memoize the loadNotes function
-  const loadNotes = useCallback(async () => {
-    console.log('loadNotes called', new Date().toISOString());
-    if (!verse) return;
-    
-    setIsLoadingNotes(true);
-    try {
-      const notes = await memoizedNotesFunctions.fetchVerseNotes(verse.book, verse.chapter, verse.verse);
-      console.log('Notes fetched:', notes.length, 'notes');
-      
-      // Find user's own study note
-      const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
-      if (ownStudyNote) {
-        setStudyNote(ownStudyNote.content);
-        setEditedNote(ownStudyNote.content);
-      } else {
-        setStudyNote('');
-        setEditedNote('');
-      }
-
-      // Filter out friend's study notes
-      const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
-      setFriendNotes(friendStudyNotes);
-    } catch (err) {
-      console.error('Error loading notes:', err);
-      setError('Failed to load notes');
-    } finally {
-      setIsLoadingNotes(false);
-    }
-  }, [verse?.book, verse?.chapter, verse?.verse, memoizedNotesFunctions]);
-
   // Only fetch notes when the panel first opens or verse changes
   useEffect(() => {
     console.log('Notes effect running', new Date().toISOString());
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
+    const loadNotes = async () => {
+      console.log('loadNotes called', new Date().toISOString());
+      if (!verse || !isMounted) return;
+      
+      setIsLoadingNotes(true);
+      try {
+        const notes = await memoizedNotesFunctions.fetchVerseNotes(verse.book, verse.chapter, verse.verse);
+        console.log('Notes fetched:', notes.length, 'notes');
+        
+        // Only update state if component is still mounted
+        if (!isMounted) return;
+        
+        // Find user's own study note
+        const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
+        if (ownStudyNote) {
+          setStudyNote(ownStudyNote.content);
+          setEditedNote(ownStudyNote.content);
+        } else {
+          setStudyNote('');
+          setEditedNote('');
+        }
+
+        // Filter out friend's study notes
+        const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
+        setFriendNotes(friendStudyNotes);
+      } catch (err) {
+        console.error('Error loading notes:', err);
+        if (isMounted) {
+          setError('Failed to load notes');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingNotes(false);
+        }
+      }
+    };
+
     loadNotes();
-  }, [loadNotes]);
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, [verse?.book, verse?.chapter, verse?.verse, memoizedNotesFunctions]);
 
   const handleEdit = useCallback(() => {
     setIsEditing(true);
