@@ -11,7 +11,6 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
   const [hoveredVerse, setHoveredVerse] = useState(false);
   const [error, setError] = useState(null);
 
-  // Only fetch notes when the quick note panel is first opened
   useEffect(() => {
     const loadNotes = async () => {
       try {
@@ -75,13 +74,16 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
           <div className="flex items-start gap-2">
             <span className="text-gray-500 text-sm min-w-[20px]">{verse.verse}</span>
             <div className="flex-1">
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-lg flex-1 pr-16">
-                  {verse.text}
-                </p>
+              <div className="flex items-start justify-between">
+                {/* Added a container with max-width to prevent text overlap */}
+                <div className="flex-1 max-w-[calc(100%-96px)]">
+                  <p className="text-lg">
+                    {verse.text}
+                  </p>
+                </div>
                 
-                {/* Note Icons */}
-                <div className={`flex gap-2 ml-2 ${!hoveredVerse ? 'invisible' : ''}`}>
+                {/* Note Icons Container - now has fixed width */}
+                <div className={`flex gap-2 ml-4 min-w-[80px] justify-end ${!hoveredVerse ? 'invisible' : ''}`}>
                   <button 
                     onClick={handleQuickNoteClick}
                     className="p-1.5 rounded hover:bg-gray-200"
@@ -145,4 +147,4 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
   );
 };
 
-export default BibleVerseWithNotes; 
+export default BibleVerseWithNotes;
