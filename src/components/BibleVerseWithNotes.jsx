@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, MessageSquare, Check, X, PencilLine, BookOpen } from 'lucide-react';
+import { Edit3, MessageSquare, Check, X } from 'lucide-react';
 import { useNotes } from '../hooks/useNotes';
 import AutoExpandingTextarea from './AutoExpandingTextarea';
 
@@ -10,7 +10,6 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
   const [editedQuickNote, setEditedQuickNote] = useState('');
   const [hoveredVerse, setHoveredVerse] = useState(false);
   const [error, setError] = useState(null);
-  const [showButtons, setShowButtons] = useState(false);
 
   // Only fetch notes when the quick note panel is first opened
   useEffect(() => {
@@ -66,76 +65,82 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive }) => {
   };
 
   return (
-    <div 
-      id={`verse-${verse.id}`}
-      className={`group relative py-2 px-4 ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-      onMouseEnter={() => setShowButtons(true)}
-      onMouseLeave={() => setShowButtons(false)}
-    >
-      <div className="flex items-start">
-        <span className="text-gray-500 mr-4 w-8 flex-shrink-0 text-right">
-          {verse.verse}
-        </span>
-        <div className="flex-grow">
-          <p className="inline-block">{verse.text}</p>
-          {/* Absolute positioning for buttons to prevent text reflow */}
-          <div className={`absolute right-4 top-1/2 -translate-y-1/2 flex gap-2 transition-opacity duration-200 ${showButtons ? 'opacity-100' : 'opacity-0'}`}>
-            <button
-              onClick={() => setShowQuickNote(true)}
-              className="p-1 rounded hover:bg-gray-200"
-              title="Add quick note"
-            >
-              <PencilLine className="w-4 h-4 text-gray-600" />
-            </button>
-            <button
-              onClick={() => onOpenSidePanel(verse)}
-              className="p-1 rounded hover:bg-gray-200"
-              title="Open study notes"
-            >
-              <BookOpen className="w-4 h-4 text-gray-600" />
-            </button>
+    <div className="flex w-full">
+      <div className="flex-1 bg-white">
+        <div 
+          className={`relative p-4 transition-colors ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+          onMouseEnter={() => setHoveredVerse(true)}
+          onMouseLeave={() => setHoveredVerse(false)}
+        >
+          <div className="flex items-start gap-2">
+            <span className="text-gray-500 text-sm min-w-[20px]">{verse.verse}</span>
+            <div className="flex-1">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-lg flex-1 pr-16">
+                  {verse.text}
+                </p>
+                
+                {/* Note Icons */}
+                <div className={`flex gap-2 ml-2 ${!hoveredVerse ? 'invisible' : ''}`}>
+                  <button 
+                    onClick={handleQuickNoteClick}
+                    className="p-1.5 rounded hover:bg-gray-200"
+                    title="Quick note"
+                  >
+                    <Edit3 className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button 
+                    onClick={() => onOpenSidePanel(verse)}
+                    className={`p-1.5 rounded hover:bg-gray-200 ${isActive ? 'bg-blue-200' : ''}`}
+                    title="Study note"
+                  >
+                    <MessageSquare className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Quick Note Input */}
+              {showQuickNote && (
+                <div className="mt-2 pl-4 border-l-2 border-blue-400">
+                  {error && (
+                    <div className="text-red-600 text-sm mb-2">
+                      {error}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <AutoExpandingTextarea
+                      value={editedQuickNote}
+                      onChange={(e) => setEditedQuickNote(e.target.value)}
+                      placeholder="Add a quick note..."
+                      className="w-full p-2 pr-16 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      disabled={isLoading}
+                      minRows={2}
+                    />
+                    <div className="absolute right-2 top-2 flex gap-1">
+                      <button
+                        onClick={handleSaveQuickNote}
+                        className="p-1 rounded hover:bg-green-100 text-green-600"
+                        title="Save quick note"
+                        disabled={isLoading}
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleCancelQuickNote}
+                        className="p-1 rounded hover:bg-red-100 text-red-600"
+                        title="Cancel"
+                        disabled={isLoading}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Quick note panel */}
-      {showQuickNote && (
-        <div className="mt-2 pl-4 border-l-2 border-blue-400">
-          {error && (
-            <div className="text-red-600 text-sm mb-2">
-              {error}
-            </div>
-          )}
-          <div className="relative">
-            <AutoExpandingTextarea
-              value={editedQuickNote}
-              onChange={(e) => setEditedQuickNote(e.target.value)}
-              placeholder="Add a quick note..."
-              className="w-full p-2 pr-16 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-              disabled={isLoading}
-              minRows={2}
-            />
-            <div className="absolute right-2 top-2 flex gap-1">
-              <button
-                onClick={handleSaveQuickNote}
-                className="p-1 rounded hover:bg-green-100 text-green-600"
-                title="Save quick note"
-                disabled={isLoading}
-              >
-                <Check className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleCancelQuickNote}
-                className="p-1 rounded hover:bg-red-100 text-red-600"
-                title="Cancel"
-                disabled={isLoading}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

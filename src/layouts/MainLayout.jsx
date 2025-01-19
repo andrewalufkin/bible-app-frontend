@@ -1,5 +1,4 @@
 // src/layouts/MainLayout.jsx
-
 import React from 'react';
 import Sidebar from '../components/navigation/Sidebar';
 import BibleNavigation from '../components/navigation/BibleNavigation';
