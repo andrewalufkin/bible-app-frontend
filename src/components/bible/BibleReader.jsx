@@ -327,13 +327,18 @@ const BibleReader = () => {
 
   return (
     <div className={`relative transition-all duration-300 ${activeVerse ? 'mr-96' : ''}`}>
-      <div className="px-8">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">
-            {currentBook} {currentChapter}
-          </h1>
-          <p className="text-gray-600">King James Version</p>
+      <div className="sticky top-0 bg-white z-20 shadow-sm">
+        <div className="max-w-4xl mx-auto px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">
+              {currentBook} {currentChapter}
+            </h1>
+            <p className="text-gray-600">King James Version</p>
+          </div>
         </div>
+      </div>
+
+      <div className="px-8 mt-6">
         <div className="prose max-w-none">
           {isLoading ? (
             <LoadingState />
@@ -355,7 +360,7 @@ const BibleReader = () => {
               {currentActiveVerse && (
                 <div 
                   id={`verse-${currentActiveVerse.id}`}
-                  className="sticky top-0 bg-white shadow-md z-10"
+                  className="sticky top-16 bg-white shadow-md z-10"
                 >
                   <BibleVerseWithNotes 
                     verse={currentActiveVerse}

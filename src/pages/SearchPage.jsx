@@ -16,7 +16,7 @@ const SearchPage = () => {
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [hasSearched, setHasSearched] = useState(false); // Track if a search has been performed
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
@@ -33,7 +33,7 @@ const SearchPage = () => {
       }
 
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/bible/search?q=${encodeURIComponent(query)}`,
+        `${process.env.REACT_APP_BACKEND_URL}/api/bible/search?q=${encodeURIComponent(query.trim())}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -46,7 +46,12 @@ const SearchPage = () => {
       }
       
       const data = await response.json();
-      setResults(data);
+      if (Array.isArray(data)) {
+        setResults(data);
+      } else {
+        console.error('Unexpected response format:', data);
+        setResults([]);
+      }
     } catch (err) {
       setError(err.message);
       console.error('Search error:', err);
