@@ -1,6 +1,8 @@
 // src/pages/SearchPage.jsx
 import React, { useState } from 'react';
 import { Search as SearchIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const SearchResult = ({ verse }) => (
   <div className="p-4 border rounded-lg mb-4 hover:bg-gray-50">
@@ -17,6 +19,7 @@ const SearchPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
@@ -65,8 +68,27 @@ const SearchPage = () => {
     setHasSearched(false); // Reset search state when user types
   };
 
+  // If not authenticated, show login prompt instead of search form
+  if (!isAuthenticated) {
+    return (
+      <div className="w-full h-full">
+        <h1 className="text-3xl font-bold mb-6">Search the Bible</h1>
+        <div className="bg-yellow-50 border border-yellow-400 text-yellow-700 px-4 py-5 rounded-lg">
+          <p className="mb-3">Authentication is required to use the search feature.</p>
+          <Link to="/login" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            Sign in
+          </Link>
+          <span className="mx-2">or</span>
+          <Link to="/register" className="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+            Create an account
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full h-full">
       <h1 className="text-3xl font-bold mb-6">Search the Bible</h1>
       
       <form onSubmit={handleSearch} className="mb-8">
@@ -101,6 +123,13 @@ const SearchPage = () => {
       {error && (
         <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
           {error}
+          {error === 'Authentication required' && (
+            <div className="mt-3">
+              <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">
+                Go to login page
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

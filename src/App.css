@@ -36,3 +36,91 @@
     transform: rotate(360deg);
   }
 }
+
+/* Base layout styles */
+html, body, #root {
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure full height layout */
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Ensure the Bible reader fills the available space */
+.h-screen {
+  height: 100vh;
+  height: -webkit-fill-available;
+}
+
+/* Main layout container styles */
+.main-layout {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Sidebar and navigation fixed widths */
+.sidebar {
+  width: 4rem; /* 64px */
+}
+
+.bible-navigation {
+  width: 16rem; /* 256px */
+  overflow-y: auto;
+}
+
+/* Content area should fill available space */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+}
+
+/* Responsive font sizing */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Prevent overflow issues on mobile */
+@media (max-width: 768px) {
+  .overflow-fix {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
+
+/* Touch-friendly interaction areas */
+@media (max-width: 768px) {
+  button, 
+  select, 
+  a, 
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Custom select height to ensure it fits in the navigation panel */
+select {
+  max-height: 38px;
+}
+
+/* Remove conflicting margin declaration */
+@media (min-width: 768px) {
+  main.content-area {
+    padding-left: 1rem !important;
+    margin-left: 0 !important;
+  }
+}

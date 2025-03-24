@@ -1,70 +1,97 @@
-# Getting Started with Create React App
+# Bible App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern Bible application with user authentication, note-taking, and social features.
 
-## Available Scripts
+## Project Structure
 
-In the project directory, you can run:
+This project consists of two main parts:
 
-### `npm start`
+- **Frontend**: React application with Tailwind CSS
+- **Backend**: Flask API with MongoDB database
 
-Runs the app in the development mode.\
+## Frontend
+
+### Technologies
+
+- React 19
+- React Router
+- Tailwind CSS
+- Express.js (for production server)
+- Lucide React (icons)
+
+### Available Scripts
+
+In the frontend directory, you can run:
+
+#### `npm run dev`
+
+Runs the app in development mode using React Scripts.\
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+#### `npm start`
 
-### `npm test`
+Starts the production Express.js server that serves the built React application and proxies API requests to the backend.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+#### `npm run build`
 
-### `npm run build`
+Builds the app for production to the `build` folder.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+#### `npm test`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Launches the test runner in interactive watch mode.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Backend
 
-### `npm run eject`
+### Technologies
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- Flask 3.0.0
+- MongoDB with MongoEngine
+- JWT Authentication
+- Sentence Transformers (for NLP capabilities)
+- Gunicorn (for production deployment)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Setup
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+1. Create a virtual environment:
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-## Learn More
+3. Set up environment variables in `.env`
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+4. Run the development server:
+   ```
+   python app.py
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Deployment
 
-### Code Splitting
+The application is configured for deployment on platforms like Railway:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- The frontend Express server serves the React build and proxies API requests to the backend
+- The backend uses Gunicorn for production deployment
 
-### Analyzing the Bundle Size
+## Features
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- Bible reading and searching
+- User authentication
+- Personal notes on Bible passages
+- Friend connections
+- Modern, responsive UI with Tailwind CSS
 
-### Making a Progressive Web App
+## Development
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+To work on this project:
 
-### Advanced Configuration
+1. Clone both the frontend and backend repositories
+2. Set up the backend environment variables
+3. Run the backend server
+4. Run the frontend in development mode
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+For full-stack development, you'll need to run both the backend and frontend services.

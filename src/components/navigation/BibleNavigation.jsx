@@ -1,5 +1,5 @@
 // src/components/navigation/BibleNavigation.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBible } from '../../contexts/BibleContext';
 
 const Select = ({ options, value, onChange, placeholder, labelFunction }) => (
@@ -39,6 +39,19 @@ const BibleNavigation = () => {
     setCurrentBook,
     setCurrentChapter,
   } = useBible();
+  
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   const handleBookChange = (e) => {
     const selectedBook = e.target.value;
@@ -61,28 +74,30 @@ const BibleNavigation = () => {
   );
 
   return (
-    <div className="fixed w-64 h-screen bg-gray-100 p-4">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Book</label>
-          <Select 
-            options={books}
-            value={currentBook || ''}
-            onChange={handleBookChange}
-            placeholder="Select Book"
-            labelFunction={(book) => book}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Chapter</label>
-          <Select 
-            options={chapters}
-            value={currentChapter}
-            onChange={handleChapterChange}
-            placeholder="Select Chapter"
-            labelFunction={(chapter) => `Chapter ${chapter}`}
-          />
+    <div className="w-full h-full bg-gray-100 border-r flex flex-col">
+      <div className="p-4 overflow-y-auto flex-1">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Book</label>
+            <Select 
+              options={books}
+              value={currentBook || ''}
+              onChange={handleBookChange}
+              placeholder="Select Book"
+              labelFunction={(book) => book}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Chapter</label>
+            <Select 
+              options={chapters}
+              value={currentChapter}
+              onChange={handleChapterChange}
+              placeholder="Select Chapter"
+              labelFunction={(chapter) => `Chapter ${chapter}`}
+            />
+          </div>
         </div>
       </div>
     </div>

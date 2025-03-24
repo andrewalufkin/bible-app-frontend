@@ -69,6 +69,19 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   const [editedNote, setEditedNote] = useState('');
   const [error, setError] = useState(null);
   const [friendNotes, setFriendNotes] = useState([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if viewport is mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   // Memoize the loadNotes function
   const loadNotes = useCallback(async () => {
@@ -181,7 +194,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   ), [user?.can_view_friend_notes, isLoadingNotes, friendNotes]);
 
   return (
-    <div className="w-96 border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto">
+    <div className={`${isMobile ? 'w-full' : 'w-96'} border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto z-50`}>
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-medium">Study Notes</h3>
         <button 
@@ -326,8 +339,8 @@ const BibleReader = () => {
   const { beforeVerses, activeVerse: currentActiveVerse, afterVerses } = getVerseSections();
 
   return (
-    <div className={`relative transition-all duration-300 ${activeVerse ? 'mr-96' : ''}`}>
-      <div className="px-8">
+    <div className={`relative h-full w-full transition-all duration-300 ${activeVerse ? 'mr-96' : ''}`}>
+      <div className="px-4 md:px-8 h-full">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-bold">
             {currentBook} {currentChapter}
