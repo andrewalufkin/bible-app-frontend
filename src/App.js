@@ -11,6 +11,7 @@ import FriendsPage from './pages/FriendsPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import InsightsPage from './pages/InsightsPage';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
@@ -35,6 +36,22 @@ function AppContent() {
         <MainLayout>
           <BibleReader />
         </MainLayout>
+      } />
+
+      {/* Bible Routes */}
+      <Route path="/bible/:book/:chapter" element={
+        <MainLayout>
+          <BibleReader />
+        </MainLayout>
+      } />
+
+      {/* Insights Route */}
+      <Route path="/insights/:book/:chapter" element={
+        <ProtectedRoute>
+          <MainLayout>
+            <InsightsPage />
+          </MainLayout>
+        </ProtectedRoute>
       } />
 
       {/* Protected & Premium Routes */}

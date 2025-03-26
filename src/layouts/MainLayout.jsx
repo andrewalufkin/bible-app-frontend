@@ -1,12 +1,19 @@
 // src/layouts/MainLayout.jsx
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from '../components/navigation/Sidebar';
 import BibleNavigation from '../components/navigation/BibleNavigation';
+import BibleNavigationControls from '../components/navigation/BibleNavigationControls';
 import { Menu } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [showNav, setShowNav] = useState(false);
+  const location = useLocation();
+  
+  // Check if current route is Bible-related
+  const isBibleRoute = location.pathname === '/' || 
+                       location.pathname.startsWith('/bible/');
 
   // Check if viewport is mobile
   useEffect(() => {
@@ -61,20 +68,17 @@ const MainLayout = ({ children }) => {
 
       {/* Main Content with responsive layout */}
       <div className="main-layout flex flex-1 w-full h-full" style={!isMobile ? {marginLeft: '4rem'} : {}}>
-        {/* Bible Navigation - fixed on desktop, conditionally shown on mobile */}
-        <div 
-          className={`bible-navigation ${
-            isMobile
-              ? `fixed left-16 top-0 h-full transform z-30 transition-transform duration-300 ${showNav ? 'translate-x-0' : '-translate-x-full'}`
-              : 'h-full flex-shrink-0 overflow-y-auto'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <BibleNavigation />
-        </div>
-        
         {/* Content Area with responsive layout */}
-        <main className="content-area p-4 overflow-y-auto">
+        <main className="content-area w-full p-4 overflow-y-auto">
+          {/* Navigation Header - Only shown for Bible routes */}
+          <div className="flex justify-between items-center mb-4 py-2">
+            <div className="flex-1"></div>
+            <div className="flex-1 flex justify-center">
+              {isBibleRoute && <BibleNavigationControls />}
+            </div>
+            <div className="flex-1"></div>
+          </div>
+          
           {children}
         </main>
       </div>

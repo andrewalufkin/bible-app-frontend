@@ -7,12 +7,16 @@ export const useNotes = () => {
   const [loadingStates, setLoadingStates] = useState({
     fetch: false,
     studyNote: false,
-    quickNote: false
+    quickNote: false,
+    allNotes: false,
+    chapterNotes: false
   });
   const [errors, setErrors] = useState({
     fetch: null,
     studyNote: null,
-    quickNote: null
+    quickNote: null,
+    allNotes: null,
+    chapterNotes: null
   });
 
   // Memoize headers function
@@ -44,6 +48,57 @@ export const useNotes = () => {
       return [];
     } finally {
       setLoadingStates(prev => ({ ...prev, fetch: false }));
+    }
+  }, [getAuthHeaders]);
+
+  const fetchChapterNotes = useCallback(async (book, chapter) => {
+    setLoadingStates(prev => ({ ...prev, chapterNotes: true }));
+    setErrors(prev => ({ ...prev, chapterNotes: null }));
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/notes/chapter/${book}/${chapter}/notes`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chapter notes');
+      }
+
+      const notes = await response.json();
+      return notes;
+    } catch (err) {
+      setErrors(prev => ({ ...prev, chapterNotes: err.message }));
+      return [];
+    } finally {
+      setLoadingStates(prev => ({ ...prev, chapterNotes: false }));
+    }
+  }, [getAuthHeaders]);
+
+  const fetchAllNotes = useCallback(async (page = 1, limit = 10) => {
+    setLoadingStates(prev => ({ ...prev, allNotes: true }));
+    setErrors(prev => ({ ...prev, allNotes: null }));
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/notes/all?page=${page}&limit=${limit}`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notes');
+      }
+
+      return await response.json();
+    } catch (err) {
+      setErrors(prev => ({ ...prev, allNotes: err.message }));
+      return { notes: [], pagination: { total: 0, page: 1, limit, pages: 0 } };
+    } finally {
+      setLoadingStates(prev => ({ ...prev, allNotes: false }));
     }
   }, [getAuthHeaders]);
 
@@ -103,19 +158,54 @@ export const useNotes = () => {
     }
   }, [getAuthHeaders]);
 
+  const saveChapterNote = useCallback(async (noteData) => {
+    setLoadingStates(prev => ({ ...prev, chapterNotes: true }));
+    setErrors(prev => ({ ...prev, chapterNotes: null }));
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/notes/chapter`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(noteData)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save chapter note');
+      }
+
+      return await response.json();
+    } catch (err) {
+      setErrors(prev => ({ ...prev, chapterNotes: err.message }));
+      throw err;
+    } finally {
+      setLoadingStates(prev => ({ ...prev, chapterNotes: false }));
+    }
+  }, [getAuthHeaders]);
+
   return {
     isLoading: {
       fetch: loadingStates.fetch,
       studyNote: loadingStates.studyNote,
-      quickNote: loadingStates.quickNote
+      quickNote: loadingStates.quickNote,
+      allNotes: loadingStates.allNotes,
+      chapterNotes: loadingStates.chapterNotes
     },
     error: {
       fetch: errors.fetch,
       studyNote: errors.studyNote,
-      quickNote: errors.quickNote
+      quickNote: errors.quickNote,
+      allNotes: errors.allNotes,
+      chapterNotes: errors.chapterNotes
     },
     fetchVerseNotes,
+    fetchChapterNotes,
+    fetchAllNotes,
     saveStudyNote,
-    saveQuickNote
+    saveQuickNote,
+    saveChapterNote
   };
 };

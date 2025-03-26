@@ -2,11 +2,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useBible } from '../../contexts/BibleContext';
 import BibleVerseWithNotes from '../BibleVerseWithNotes';
-import { X, Edit2, Check, XCircle } from 'lucide-react';
+import { X, Edit2, Check, XCircle, BookOpen } from 'lucide-react';
 import { useNotes } from '../../hooks/useNotes';
 import AutoExpandingTextarea from '../AutoExpandingTextarea';
 import TruncatedText from '../TruncatedText';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import ChapterNotesPanel from './ChapterNotesPanel';
 
 const LoadingState = () => (
   <div className="animate-pulse">
@@ -62,7 +64,21 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   console.log('StudyNotesSidePanel rendering', new Date().toISOString());
   
   const { user } = useAuth();
-  const { fetchVerseNotes, saveStudyNote, isLoading: { studyNote: isSavingNote, fetch: isLoadingNotes }, error: { studyNote: studyNoteError, fetch: fetchError }} = useNotes();
+  const { 
+    fetchVerseNotes, 
+    fetchChapterNotes, 
+    saveStudyNote, 
+    isLoading: { 
+      studyNote: isSavingNote, 
+      fetch: isLoadingNotes,
+      chapterNotes: isLoadingChapterNotes
+    }, 
+    error: { 
+      studyNote: studyNoteError, 
+      fetch: fetchError,
+      chapterNotes: chapterNotesError
+    }
+  } = useNotes();
   
   const [studyNote, setStudyNote] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -70,6 +86,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
   const [error, setError] = useState(null);
   const [friendNotes, setFriendNotes] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [chapterNotesCache, setChapterNotesCache] = useState({});
 
   // Check if viewport is mobile
   useEffect(() => {
@@ -83,52 +100,91 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
-  // Memoize the loadNotes function
-  const loadNotes = useCallback(async () => {
-    if (!verse) return;
-    
-    try {
-      const notes = await fetchVerseNotes(verse.book, verse.chapter, verse.verse);
-      console.log('Notes fetched:', notes.length, 'notes');
-      
-      // Find user's own study note
-      const ownStudyNote = notes.find(note => note.user.is_self && note.note_type === 'study');
-      if (ownStudyNote) {
-        setStudyNote(ownStudyNote.content);
-        setEditedNote(ownStudyNote.content);
-      } else {
-        setStudyNote('');
-        setEditedNote('');
-      }
-
-      // Filter out friend's study notes
-      const friendStudyNotes = notes.filter(note => !note.user.is_self && note.note_type === 'study');
-      setFriendNotes(friendStudyNotes);
-    } catch (err) {
-      console.error('Error loading notes:', err);
-      setError('Failed to load notes');
-    }
-  }, [verse?.book, verse?.chapter, verse?.verse, fetchVerseNotes]);
-
-  // Only fetch notes when the panel first opens or verse changes
+  // Load all chapter notes once when component mounts or book/chapter changes
   useEffect(() => {
-    console.log('Notes effect running', new Date().toISOString());
+    if (!verse) return;
     
     // Create a flag to track if the component is mounted
     let isMounted = true;
     
-    const fetchData = async () => {
-      if (!isMounted) return;
-      await loadNotes();
+    const fetchAllChapterNotes = async () => {
+      try {
+        const notes = await fetchChapterNotes(verse.book, verse.chapter);
+        if (!isMounted) return;
+        
+        // Process and cache all notes for this chapter
+        const notesCache = {};
+        notes.forEach(note => {
+          if (!notesCache[note.verse]) {
+            notesCache[note.verse] = [];
+          }
+          notesCache[note.verse].push(note);
+        });
+        
+        setChapterNotesCache(notesCache);
+        
+        // Initialize the current verse's notes
+        const currentVerseNotes = notesCache[verse.verse] || [];
+        
+        // Find user's own study note for this verse
+        const ownStudyNote = currentVerseNotes.find(
+          note => note.user.is_self && note.note_type === 'study'
+        );
+        
+        if (ownStudyNote) {
+          setStudyNote(ownStudyNote.content);
+          setEditedNote(ownStudyNote.content);
+        } else {
+          setStudyNote('');
+          setEditedNote('');
+        }
+
+        // Filter out friend's study notes for this verse
+        const friendStudyNotes = currentVerseNotes.filter(
+          note => !note.user.is_self && note.note_type === 'study'
+        );
+        setFriendNotes(friendStudyNotes);
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading chapter notes:', err);
+          setError('Failed to load notes');
+        }
+      }
     };
 
-    fetchData();
+    fetchAllChapterNotes();
     
     // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
     };
-  }, [loadNotes]);
+  }, [verse?.book, verse?.chapter, fetchChapterNotes]);
+
+  // Update notes when verse changes (using cached data)
+  useEffect(() => {
+    if (!verse || !chapterNotesCache[verse.verse]) return;
+    
+    const currentVerseNotes = chapterNotesCache[verse.verse];
+    
+    // Find user's own study note for this verse
+    const ownStudyNote = currentVerseNotes.find(
+      note => note.user.is_self && note.note_type === 'study'
+    );
+    
+    if (ownStudyNote) {
+      setStudyNote(ownStudyNote.content);
+      setEditedNote(ownStudyNote.content);
+    } else {
+      setStudyNote('');
+      setEditedNote('');
+    }
+
+    // Filter out friend's study notes for this verse
+    const friendStudyNotes = currentVerseNotes.filter(
+      note => !note.user.is_self && note.note_type === 'study'
+    );
+    setFriendNotes(friendStudyNotes);
+  }, [verse?.verse, chapterNotesCache]);
 
   const handleEdit = useCallback(() => {
     setIsEditing(true);
@@ -156,12 +212,43 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
       setIsEditing(false);
       setError(null);
       
-      // Reload notes to get updated friend notes
-      await loadNotes();
+      // Update the cache with the new note
+      setChapterNotesCache(prevCache => {
+        const updatedCache = { ...prevCache };
+        
+        if (!updatedCache[verse.verse]) {
+          updatedCache[verse.verse] = [];
+        }
+        
+        // Find and update or add the note
+        const noteIndex = updatedCache[verse.verse].findIndex(
+          note => note.user.is_self && note.note_type === 'study'
+        );
+        
+        if (noteIndex >= 0) {
+          // Update existing note
+          updatedCache[verse.verse][noteIndex] = {
+            ...updatedCache[verse.verse][noteIndex],
+            content: savedNote.content
+          };
+        } else if (savedNote.content) {
+          // Add new note
+          updatedCache[verse.verse].push({
+            ...savedNote,
+            user: {
+              id: savedNote.user?.id,
+              username: savedNote.user?.username || 'You',
+              is_self: true
+            }
+          });
+        }
+        
+        return updatedCache;
+      });
     } catch (err) {
       setError(err.message);
     }
-  }, [verse, editedNote, saveStudyNote, loadNotes]);
+  }, [verse, editedNote, saveStudyNote]);
 
   const handleCancel = useCallback(() => {
     setEditedNote(studyNote);
@@ -174,7 +261,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
     user?.can_view_friend_notes && (
       <div className="border-t pt-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Friend's Notes</h4>
-        {isLoadingNotes ? (
+        {isLoadingChapterNotes ? (
           <div className="animate-pulse space-y-4">
             <div className="h-24 bg-gray-200 rounded"></div>
             <div className="h-24 bg-gray-200 rounded"></div>
@@ -191,7 +278,7 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
         )}
       </div>
     )
-  ), [user?.can_view_friend_notes, isLoadingNotes, friendNotes]);
+  ), [user?.can_view_friend_notes, isLoadingChapterNotes, friendNotes]);
 
   return (
     <div className={`${isMobile ? 'w-full' : 'w-96'} border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto z-50`}>
@@ -289,15 +376,29 @@ const StudyNotesSidePanel = ({ verse, onClose }) => {
 };
 
 const BibleReader = () => {
-  const { currentBook, currentChapter, verses, isLoading, error } = useBible();
+  const { currentBook, currentChapter, verses, isLoading, error, books = [], chapterOptions = [], loadChapter } = useBible();
   const [activeVerse, setActiveVerse] = useState(null);
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [showChapterNotes, setShowChapterNotes] = useState(false);
 
   const handleOpenSidePanel = (verse) => {
     setActiveVerse(verse);
+    setShowChapterNotes(false);
   };
 
   const handleCloseSidePanel = () => {
     setActiveVerse(null);
+  };
+
+  const handleOpenChapterNotes = () => {
+    setActiveVerse(null);
+    setShowChapterNotes(true);
+  };
+
+  const handleCloseChapterNotes = () => {
+    setShowChapterNotes(false);
   };
 
   useEffect(() => {
@@ -310,48 +411,79 @@ const BibleReader = () => {
     }
   }, [activeVerse]);
 
+  const handleBookChange = (book) => {
+    setIsLoadingChapters(true);
+    loadChapter(book, 1).finally(() => {
+      setIsLoadingChapters(false);
+    });
+  };
+
+  const handleChapterChange = (chapter) => {
+    loadChapter(currentBook, chapter);
+  };
+
+  // Split verses into sections: before active verse, active verse, and after active verse
+  const { beforeVerses, currentActiveVerse, afterVerses } = useMemo(() => {
+    if (!activeVerse || !verses) {
+      return {
+        beforeVerses: verses || [],
+        currentActiveVerse: null,
+        afterVerses: []
+      };
+    }
+
+    const activeIndex = verses.findIndex(v => v.id === activeVerse.id);
+    if (activeIndex === -1) {
+      return {
+        beforeVerses: verses,
+        currentActiveVerse: null,
+        afterVerses: []
+      };
+    }
+
+    return {
+      beforeVerses: verses.slice(0, activeIndex),
+      currentActiveVerse: verses[activeIndex],
+      afterVerses: verses.slice(activeIndex + 1)
+    };
+  }, [verses, activeVerse]);
+
+  useEffect(() => {
+    // If we have a book but no chapter options, try to load the first chapter
+    if (currentBook && (!chapterOptions || chapterOptions.length === 0)) {
+      loadChapter(currentBook, 1);
+    }
+  }, [currentBook, chapterOptions, loadChapter]);
+
   if (error) {
     return (
-      <div className="text-red-600 p-4">
-        <p>{error}</p>
+      <div className="p-4 bg-red-100 text-red-700 rounded">
+        Error: {error}
       </div>
     );
   }
 
-  if (!currentBook) {
-    return <LoadingState />;
-  }
-
-  // Split verses into sections based on active verse
-  const getVerseSections = () => {
-    if (!activeVerse) {
-      return { beforeVerses: [], activeVerse: null, afterVerses: verses };
-    }
-
-    const activeIndex = verses.findIndex(v => v.id === activeVerse.id);
-    return {
-      beforeVerses: verses.slice(0, activeIndex),
-      activeVerse: verses[activeIndex],
-      afterVerses: verses.slice(activeIndex + 1)
-    };
-  };
-
-  const { beforeVerses, activeVerse: currentActiveVerse, afterVerses } = getVerseSections();
-
   return (
-    <div className={`relative h-full w-full transition-all duration-300 ${activeVerse ? 'mr-96' : ''}`}>
+    <div className={`relative h-full w-full transition-all duration-300 ${activeVerse || showChapterNotes ? 'mr-96' : ''}`}>
       <div className="px-4 md:px-8 h-full">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">
-            {currentBook} {currentChapter}
-          </h1>
-          <p className="text-gray-600">King James Version</p>
-        </div>
         <div className="prose max-w-none">
           {isLoading ? (
             <LoadingState />
           ) : (
             <>
+              {/* Chapter toolbar */}
+              <div className="flex justify-between items-center bg-white z-20 py-2 border-b mb-4">
+                <h2 className="text-2xl font-bold m-0">{currentBook} {currentChapter}</h2>
+                <button
+                  onClick={handleOpenChapterNotes}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg"
+                  title="Chapter Notes"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span className="text-sm">Chapter Notes</span>
+                </button>
+              </div>
+              
               {/* Verses before active verse */}
               <div>
                 {beforeVerses.map(verse => (
@@ -398,6 +530,14 @@ const BibleReader = () => {
         <StudyNotesSidePanel 
           verse={activeVerse}
           onClose={handleCloseSidePanel}
+        />
+      )}
+
+      {showChapterNotes && currentBook && currentChapter && (
+        <ChapterNotesPanel
+          book={currentBook}
+          chapter={currentChapter}
+          onClose={handleCloseChapterNotes}
         />
       )}
     </div>
