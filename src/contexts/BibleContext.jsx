@@ -11,7 +11,7 @@ export const BibleProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chapterCount, setChapterCount] = useState({}); // Store chapter counts for each book
-
+// irrelevant change
   const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
   console.log('Using API URL:', API_BASE_URL); // Debug log
 
