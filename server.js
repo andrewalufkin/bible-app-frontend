@@ -4,21 +4,8 @@ const path = require('path');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 
-// Get backend URL from Railway environment variables
-// NOTE: In Railway, use BACKEND_URL for the server.js Express app
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
-console.log('Server using BACKEND_URL:', BACKEND_URL);
-
-// Add middleware to log all requests for debugging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
-
-// Add health check endpoint for Railway
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
+// Get backend URL from environment variable
+const BACKEND_URL = process.env.BACKEND_URL || 'http://your-flask-backend-url.railway.app';
 
 // Proxy API requests to the backend
 app.use('/api', createProxyMiddleware({
@@ -26,22 +13,6 @@ app.use('/api', createProxyMiddleware({
     changeOrigin: true,
     pathRewrite: {
         '^/api': '' // Remove /api prefix when forwarding to backend
-    },
-    onProxyReq: (proxyReq, req, res) => {
-        console.log(`Proxying request to: ${BACKEND_URL}${proxyReq.path}`);
-    },
-    onProxyRes: (proxyRes, req, res) => {
-        console.log(`Proxy response from ${req.url}: status=${proxyRes.statusCode}`);
-    },
-    onError: (err, req, res) => {
-        console.error('Proxy error:', err);
-        
-        // Send a more graceful error response that won't cause JSON parsing errors
-        res.status(502).json({ 
-            error: 'Backend connection error', 
-            message: err.message,
-            code: 'PROXY_ERROR'
-        });
     }
 }));
 
@@ -53,44 +24,8 @@ app.get('/*', function (req, res) {
     res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Express error:', err);
-    res.status(500).json({ 
-        error: 'Server error', 
-        message: err.message,
-        code: 'SERVER_ERROR'
-    });
-});
-
 const port = process.env.PORT || 3000;
-const server = app.listen(port, () => {
+app.listen(port, () => {
     console.log(`Frontend server running on port ${port}`);
     console.log(`Proxying API requests to: ${BACKEND_URL}`);
-});
-
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-  });
-});
-
-// Handle uncaught exceptions to prevent container termination
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
-  // Keep process alive
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Keep process alive
 });

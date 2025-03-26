@@ -12,9 +12,7 @@ export const BibleProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [chapterCount, setChapterCount] = useState({}); // Store chapter counts for each book
 
-  // Add fallback URL in case environment variable is undefined
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
-  const API_BASE_URL = `${backendUrl}/api/bible`;
+  const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
   console.log('Using API URL:', API_BASE_URL); // Debug log
 
   // Helper function to handle API responses
@@ -25,19 +23,14 @@ export const BibleProvider = ({ children }) => {
     
     // Get the raw text first
     const text = await response.text();
-    
-    if (!text || text.trim() === '' || text === 'undefined') {
-      console.error('Empty or invalid response received:', text);
-      return []; // Return a safe default (empty array) instead of throwing
-    }
+    console.log('Raw response:', text); // Debug log
     
     try {
       // Try to parse the JSON
       return JSON.parse(text);
     } catch (err) {
-      console.error('JSON parse error:', err, 'Raw text:', text);
-      // Return a safe default value instead of throwing
-      return []; // Default to empty array as most responses are collections
+      console.error('JSON parse error:', err);
+      throw new Error(`Failed to parse response: ${err.message}`);
     }
   };
 
@@ -47,93 +40,51 @@ export const BibleProvider = ({ children }) => {
       try {
         console.log('Fetching books from:', `${API_BASE_URL}/books`); // Debug log
         
-        // First validation - make sure we have a valid URL that's not just "/api/bible/books"
-        if (!backendUrl && window.location.hostname !== 'localhost') {
-          console.warn('No backend URL available. Using fallback data.');
-          // Use fallback data for books
-          const fallbackBooks = ['Genesis', 'Exodus', 'Leviticus'];
-          setBooks(fallbackBooks);
-          if (fallbackBooks.length > 0) {
-            setCurrentBook(fallbackBooks[0]);
-            setChapterCount(prev => ({
-              ...prev,
-              [fallbackBooks[0]]: 50 // Genesis has 50 chapters
-            }));
-          }
-          setIsLoading(false);
-          return;
-        }
-        
         const response = await fetch(`${API_BASE_URL}/books`, {
           headers: {
             'Accept': 'application/json'
           }
         });
         
-        // Enhanced debugging for response
-        console.log('Books response status:', response.status);
-        console.log('Books response ok:', response.ok);
-        
         const data = await handleApiResponse(response, 'Failed to fetch books');
         console.log('Parsed books data:', data); // Debug log
         
-        // Validate the response data
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          console.warn('Invalid books data received. Using fallback data.');
-          // Use fallback data
-          const fallbackBooks = ['Genesis', 'Exodus', 'Leviticus'];
-          setBooks(fallbackBooks);
-          if (fallbackBooks.length > 0) {
-            setCurrentBook(fallbackBooks[0]);
+        setBooks(data);
+        
+        // Set Genesis as default book if available
+        if (data && data.length > 0) {
+          const firstBook = data[0]; // Usually Genesis
+          setCurrentBook(firstBook);
+          
+          // Also load chapter count for the first book
+          try {
+            // Use a local implementation to avoid dependency issues
+            const endpoint = `${API_BASE_URL}/chapters/${firstBook}`;
+            console.log('Fetching initial chapter count from:', endpoint);
+            
+            const chapterResponse = await fetch(endpoint, {
+              headers: {
+                'Accept': 'application/json'
+              }
+            });
+            
+            const chapterData = await handleApiResponse(chapterResponse, 'Failed to fetch chapter count');
+            console.log('Initial chapter count:', chapterData);
+            
+            // Assuming the API returns an array of chapter numbers
+            const count = chapterData.length || 1;
+            
+            // Update chapter count in state
             setChapterCount(prev => ({
               ...prev,
-              [fallbackBooks[0]]: 50 // Genesis has 50 chapters
+              [firstBook]: count
             }));
-          }
-        } else {
-          setBooks(data);
-          
-          // Set Genesis as default book if available
-          if (data && data.length > 0) {
-            const firstBook = data[0]; // Usually Genesis
-            setCurrentBook(firstBook);
             
-            // Also load chapter count for the first book
-            try {
-              // Use a local implementation to avoid dependency issues
-              const endpoint = `${API_BASE_URL}/chapters/${firstBook}`;
-              console.log('Fetching initial chapter count from:', endpoint);
-              
-              const chapterResponse = await fetch(endpoint, {
-                headers: {
-                  'Accept': 'application/json'
-                }
-              });
-              
-              const chapterData = await handleApiResponse(chapterResponse, 'Failed to fetch chapter count');
-              console.log('Initial chapter count:', chapterData);
-              
-              // Assuming the API returns an array of chapter numbers
-              const count = Array.isArray(chapterData) ? chapterData.length : 
-                            (chapterData && chapterData.count ? chapterData.count : 50); // Fallback to 50 for Genesis
-              
-              // Update chapter count in state
-              setChapterCount(prev => ({
-                ...prev,
-                [firstBook]: count
-              }));
-              
-              if (count > 0) {
-                setCurrentChapter(1);
-              }
-            } catch (err) {
-              console.error('Error loading chapter count for initial book:', err.message);
-              // Fallback to a reasonable default - Genesis has 50 chapters
-              setChapterCount(prev => ({
-                ...prev,
-                [firstBook]: 50
-              }));
+            if (count > 0) {
+              setCurrentChapter(1);
             }
+          } catch (err) {
+            console.error('Error loading chapter count for initial book:', err.message);
           }
         }
         
@@ -142,17 +93,6 @@ export const BibleProvider = ({ children }) => {
         const errorMsg = `Failed to load Bible books: ${err.message}`;
         console.error(errorMsg);
         setError(errorMsg);
-        
-        // Recovery with fallback data
-        const fallbackBooks = ['Genesis', 'Exodus', 'Leviticus'];
-        setBooks(fallbackBooks);
-        if (fallbackBooks.length > 0) {
-          setCurrentBook(fallbackBooks[0]);
-          setChapterCount(prev => ({
-            ...prev,
-            [fallbackBooks[0]]: 50 // Genesis has 50 chapters
-          }));
-        }
       } finally {
         setIsLoading(false);
       }
@@ -177,52 +117,15 @@ export const BibleProvider = ({ children }) => {
           }
         });
         
-        console.log('Verses response status:', response.status);
-        console.log('Verses response ok:', response.ok);
-        
         const data = await handleApiResponse(response, 'Failed to fetch verses');
         console.log('Parsed verses data:', data); // Debug log
         
-        // Validate the verse data
-        if (!data || !Array.isArray(data) || data.length === 0) {
-          console.warn('Invalid or empty verses data received. Using fallback data.');
-          
-          // Create fallback verse data based on book and chapter
-          const fallbackVerses = [];
-          for (let i = 1; i <= 10; i++) {
-            fallbackVerses.push({
-              id: `fallback-${i}`,
-              book_name: currentBook,
-              chapter: currentChapter,
-              verse: i,
-              text: `This is a fallback verse ${i} for ${currentBook} ${currentChapter}.`
-            });
-          }
-          
-          setVerses(fallbackVerses);
-        } else {
-          setVerses(data);
-        }
-        
+        setVerses(data);
         setError(null);
       } catch (err) {
         const errorMsg = `Failed to load verses: ${err.message}`;
         console.error(errorMsg);
         setError(errorMsg);
-        
-        // Create fallback verse data based on book and chapter
-        const fallbackVerses = [];
-        for (let i = 1; i <= 10; i++) {
-          fallbackVerses.push({
-            id: `fallback-${i}`,
-            book_name: currentBook,
-            chapter: currentChapter,
-            verse: i,
-            text: `This is a fallback verse ${i} for ${currentBook} ${currentChapter}.`
-          });
-        }
-        
-        setVerses(fallbackVerses);
       } finally {
         setIsLoading(false);
       }
