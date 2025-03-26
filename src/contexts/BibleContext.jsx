@@ -15,6 +15,34 @@ export const BibleProvider = ({ children }) => {
   const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
   console.log('Using API URL:', API_BASE_URL); // Debug log
 
+  // Helper function for fetch with timeout
+  const fetchWithTimeout = async (url, options = {}, timeout = 30000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    const fetchOptions = {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    };
+    
+    try {
+      const response = await fetch(url, fetchOptions);
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw error;
+    }
+  };
+
   // Helper function to handle API responses
   const handleApiResponse = async (response, errorMessage) => {
     if (!response.ok) {
@@ -40,11 +68,7 @@ export const BibleProvider = ({ children }) => {
       try {
         console.log('Fetching books from:', `${API_BASE_URL}/books`); // Debug log
         
-        const response = await fetch(`${API_BASE_URL}/books`, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
+        const response = await fetchWithTimeout(`${API_BASE_URL}/books`, {}, 60000); // Increased timeout to 60s
         
         const data = await handleApiResponse(response, 'Failed to fetch books');
         console.log('Parsed books data:', data); // Debug log
@@ -62,11 +86,7 @@ export const BibleProvider = ({ children }) => {
             const endpoint = `${API_BASE_URL}/chapters/${firstBook}`;
             console.log('Fetching initial chapter count from:', endpoint);
             
-            const chapterResponse = await fetch(endpoint, {
-              headers: {
-                'Accept': 'application/json'
-              }
-            });
+            const chapterResponse = await fetchWithTimeout(endpoint, {}, 30000);
             
             const chapterData = await handleApiResponse(chapterResponse, 'Failed to fetch chapter count');
             console.log('Initial chapter count:', chapterData);
@@ -111,11 +131,7 @@ export const BibleProvider = ({ children }) => {
         const endpoint = `${API_BASE_URL}/verses/${currentBook}/${currentChapter}`;
         console.log('Fetching verses from:', endpoint); // Debug log
         
-        const response = await fetch(endpoint, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
+        const response = await fetchWithTimeout(endpoint, {}, 60000); // Increased timeout to 60s
         
         const data = await handleApiResponse(response, 'Failed to fetch verses');
         console.log('Parsed verses data:', data); // Debug log
@@ -146,11 +162,7 @@ export const BibleProvider = ({ children }) => {
       const endpoint = `${API_BASE_URL}/chapters/${book}`;
       console.log('Fetching chapter count from:', endpoint);
       
-      const response = await fetch(endpoint, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      const response = await fetchWithTimeout(endpoint, {}, 30000);
       
       const data = await handleApiResponse(response, 'Failed to fetch chapter count');
       console.log('Parsed chapter count:', data);
@@ -169,7 +181,7 @@ export const BibleProvider = ({ children }) => {
       console.error(`Failed to load chapter count for ${book}:`, err.message);
       return 1; // Default to 1 chapter if error
     }
-  }, [chapterCount]);
+  }, [chapterCount, API_BASE_URL]);
 
   // Load specific book and chapter
   const loadChapter = useCallback(async (book, chapter) => {

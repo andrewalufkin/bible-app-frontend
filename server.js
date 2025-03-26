@@ -11,9 +11,10 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://your-flask-backend-url.ra
 app.use('/api', createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
-    pathRewrite: {
-        '^/api': '' // Remove /api prefix when forwarding to backend
-    }
+    // Remove the pathRewrite that was causing issues
+    // pathRewrite: {
+    //     '^/api': '' // Remove /api prefix when forwarding to backend
+    // }
 }));
 
 // Serve static files

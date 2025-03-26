@@ -3,7 +3,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Improved backend URL resolution - check window._env_ first (if it exists), then env var, then fallback to window.location.origin
+const API_BASE_URL = `${
+  window._env_?.REACT_APP_BACKEND_URL || 
+  process.env.REACT_APP_BACKEND_URL || 
+  window.location.origin
+}/api`;
+
+console.log('Using API base URL:', API_BASE_URL); // Helpful for debugging
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
