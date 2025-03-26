@@ -10,10 +10,12 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.28.1",
     "react-scripts": "5.0.1",
-    "web-vitals": "^4.2.4"
+    "web-vitals": "^4.2.4",
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "node --max-old-space-size=512 server.js",
     "dev": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -47,5 +49,8 @@
     "@babel/plugin-transform-nullish-coalescing-operator": "^7.23.4",
     "@babel/plugin-transform-numeric-separator": "^7.23.4",
     "@babel/plugin-transform-class-properties": "^7.23.4"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }

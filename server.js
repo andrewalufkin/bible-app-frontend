@@ -15,6 +15,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add health check endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Proxy API requests to the backend
 app.use('/api', createProxyMiddleware({
     target: BACKEND_URL,
@@ -59,7 +64,33 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`Frontend server running on port ${port}`);
     console.log(`Proxying API requests to: ${BACKEND_URL}`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+  });
+});
+
+// Handle uncaught exceptions to prevent container termination
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  // Keep process alive
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Keep process alive
 });
