@@ -25,6 +25,12 @@ export const BibleProvider = ({ children }) => {
     const text = await response.text();
     console.log('Raw response:', text); // Debug log
     
+    // Check for empty or invalid responses
+    if (!text || text.trim() === '' || text.includes('undefined')) {
+      console.error('Received invalid response:', text);
+      throw new Error(`Invalid API response: ${text}`);
+    }
+    
     try {
       // Try to parse the JSON
       return JSON.parse(text);
@@ -38,9 +44,12 @@ export const BibleProvider = ({ children }) => {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        console.log('Fetching books from:', `${API_BASE_URL}/books`); // Debug log
+        const endpoint = `${API_BASE_URL}/books`;
+        console.log('Fetching books from:', endpoint); // Debug log
+        console.log('Environment:', process.env.NODE_ENV);
+        console.log('API Base URL:', API_BASE_URL);
         
-        const response = await fetch(`${API_BASE_URL}/books`, {
+        const response = await fetch(endpoint, {
           headers: {
             'Accept': 'application/json'
           }
@@ -110,12 +119,18 @@ export const BibleProvider = ({ children }) => {
       try {
         const endpoint = `${API_BASE_URL}/verses/${currentBook}/${currentChapter}`;
         console.log('Fetching verses from:', endpoint); // Debug log
+        console.log('Environment:', process.env.NODE_ENV);
+        console.log('Current book:', currentBook);
+        console.log('Current chapter:', currentChapter);
         
         const response = await fetch(endpoint, {
           headers: {
             'Accept': 'application/json'
           }
         });
+        
+        // Log response status before parsing
+        console.log('Response status:', response.status, response.statusText);
         
         const data = await handleApiResponse(response, 'Failed to fetch verses');
         console.log('Parsed verses data:', data); // Debug log

@@ -6,14 +6,18 @@ const app = express();
 
 // Get backend URL from environment variable
 const BACKEND_URL = process.env.BACKEND_URL || 'http://your-flask-backend-url.railway.app';
+console.log('Using backend URL:', BACKEND_URL);
 
 // Proxy API requests to the backend
 app.use('/api', createProxyMiddleware({
     target: BACKEND_URL,
-    changeOrigin: true,
+    changeOrigin: true
+    // Comment out pathRewrite to keep /api in the path
+    /*
     pathRewrite: {
         '^/api': '' // Remove /api prefix when forwarding to backend
     }
+    */
 }));
 
 // Serve static files
