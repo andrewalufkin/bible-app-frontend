@@ -3,16 +3,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 
 const BibleContext = createContext();
 
-// Fallback data for when API fails
-const FALLBACK_BOOKS = ["Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy"];
-const FALLBACK_CHAPTERS = {
-  "Genesis": 50,
-  "Exodus": 40,
-  "Leviticus": 27,
-  "Numbers": 36,
-  "Deuteronomy": 34
-};
-
 export const BibleProvider = ({ children }) => {
   const [books, setBooks] = useState([]);
   const [currentBook, setCurrentBook] = useState(null);
@@ -21,79 +11,33 @@ export const BibleProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chapterCount, setChapterCount] = useState({}); // Store chapter counts for each book
-  const [useFallback, setUseFallback] = useState(false);
 
-  // Construct API URL with safeguards
-  const getApiBaseUrl = useCallback(() => {
-    // Get the base URL
-    const baseUrl = process.env.REACT_APP_BACKEND_URL;
-    
-    // Log the raw environment variable
-    console.log('Raw REACT_APP_BACKEND_URL:', baseUrl);
-    
-    if (!baseUrl) {
-      console.error('REACT_APP_BACKEND_URL is undefined');
-      return null;
-    }
-    
-    // Make sure no trailing slash
-    const cleanBaseUrl = baseUrl.endsWith('/') 
-      ? baseUrl.slice(0, -1) 
-      : baseUrl;
-      
-    return `${cleanBaseUrl}/api/bible`;
-  }, []);
-  
-  const API_BASE_URL = getApiBaseUrl();
+  // Add fallback URL in case environment variable is undefined
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+  const API_BASE_URL = `${backendUrl}/api/bible`;
   console.log('Using API URL:', API_BASE_URL); // Debug log
 
   // Helper function to handle API responses
-  const handleApiResponse = async (response, errorMessage, fallbackData = null) => {
-    console.log('Response headers:', Object.fromEntries([...response.headers]));
-    console.log('Response status:', response.status, response.statusText);
-    
+  const handleApiResponse = async (response, errorMessage) => {
     if (!response.ok) {
       throw new Error(`${errorMessage}: ${response.status} ${response.statusText}`);
     }
     
     // Get the raw text first
-    let text;
-    try {
-      text = await response.text();
-      console.log('Raw response text length:', text.length);
-      console.log('Raw response preview:', text.substring(0, 100)); // Show first 100 chars
-    } catch (err) {
-      console.error('Error reading response text:', err);
-      if (fallbackData) {
-        console.warn('Using fallback data due to text extraction error');
-        setUseFallback(true);
-        return fallbackData;
-      }
-      throw err;
-    }
+    const text = await response.text();
     
-    // Check for empty or invalid responses
-    if (!text || text.trim() === '' || text.includes('undefined')) {
-      console.error('Received invalid response:', text);
-      if (fallbackData) {
-        console.warn('Using fallback data due to invalid response');
-        setUseFallback(true);
-        return fallbackData;
-      }
-      throw new Error(`Invalid API response: ${text}`);
+    if (!text || text.trim() === '' || text === 'undefined') {
+      console.error('Empty or invalid response received:', text);
+      return []; // Return a safe default (empty array) instead of throwing
     }
     
     try {
       // Try to parse the JSON
       return JSON.parse(text);
     } catch (err) {
-      console.error('JSON parse error:', err, 'for text:', text);
-      if (fallbackData) {
-        console.warn('Using fallback data due to JSON parse error');
-        setUseFallback(true);
-        return fallbackData;
-      }
-      throw new Error(`Failed to parse response: ${err.message}`);
+      console.error('JSON parse error:', err, 'Raw text:', text);
+      // Return a safe default value instead of throwing
+      return []; // Default to empty array as most responses are collections
     }
   };
 
@@ -101,109 +45,68 @@ export const BibleProvider = ({ children }) => {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        if (!API_BASE_URL) {
-          throw new Error('API base URL is not available');
-        }
+        console.log('Fetching books from:', `${API_BASE_URL}/books`); // Debug log
         
-        const endpoint = `${API_BASE_URL}/books`;
-        console.log('Fetching books from:', endpoint);
-        console.log('Environment:', process.env.NODE_ENV);
+        const response = await fetch(`${API_BASE_URL}/books`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         
-        try {
-          const response = await fetch(endpoint, {
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
+        const data = await handleApiResponse(response, 'Failed to fetch books');
+        console.log('Parsed books data:', data); // Debug log
+        
+        setBooks(data);
+        
+        // Set Genesis as default book if available
+        if (data && data.length > 0) {
+          const firstBook = data[0]; // Usually Genesis
+          setCurrentBook(firstBook);
           
-          const data = await handleApiResponse(
-            response, 
-            'Failed to fetch books', 
-            FALLBACK_BOOKS
-          );
-          
-          console.log('Parsed books data:', data);
-          setBooks(data);
-          
-          // Set Genesis as default book if available
-          if (data && data.length > 0) {
-            const firstBook = data[0]; // Usually Genesis
-            setCurrentBook(firstBook);
+          // Also load chapter count for the first book
+          try {
+            // Use a local implementation to avoid dependency issues
+            const endpoint = `${API_BASE_URL}/chapters/${firstBook}`;
+            console.log('Fetching initial chapter count from:', endpoint);
             
-            // Also load chapter count for the first book
-            try {
-              if (useFallback) {
-                // Use fallback chapter count
-                setChapterCount(prev => ({
-                  ...prev,
-                  [firstBook]: FALLBACK_CHAPTERS[firstBook] || 50
-                }));
-                setCurrentChapter(1);
-              } else {
-                // Try to get real chapter count
-                const chapterEndpoint = `${API_BASE_URL}/chapters/${firstBook}`;
-                console.log('Fetching initial chapter count from:', chapterEndpoint);
-                
-                const chapterResponse = await fetch(chapterEndpoint, {
-                  headers: {
-                    'Accept': 'application/json',
-                    'Cache-Control': 'no-cache'
-                  }
-                });
-                
-                const chapterData = await handleApiResponse(
-                  chapterResponse, 
-                  'Failed to fetch chapter count',
-                  Array.from({length: FALLBACK_CHAPTERS[firstBook] || 50}, (_, i) => i + 1)
-                );
-                
-                console.log('Initial chapter count:', chapterData);
-                
-                // Assuming the API returns an array of chapter numbers
-                const count = chapterData.length || 1;
-                
-                // Update chapter count in state
-                setChapterCount(prev => ({
-                  ...prev,
-                  [firstBook]: count
-                }));
-                
-                setCurrentChapter(1);
+            const chapterResponse = await fetch(endpoint, {
+              headers: {
+                'Accept': 'application/json'
               }
-            } catch (err) {
-              console.error('Error loading chapter count for initial book:', err.message);
-              // Fallback to hard-coded chapter count
-              setChapterCount(prev => ({
-                ...prev,
-                [firstBook]: FALLBACK_CHAPTERS[firstBook] || 50
-              }));
+            });
+            
+            const chapterData = await handleApiResponse(chapterResponse, 'Failed to fetch chapter count');
+            console.log('Initial chapter count:', chapterData);
+            
+            // Assuming the API returns an array of chapter numbers
+            const count = chapterData.length || 1;
+            
+            // Update chapter count in state
+            setChapterCount(prev => ({
+              ...prev,
+              [firstBook]: count
+            }));
+            
+            if (count > 0) {
               setCurrentChapter(1);
             }
+          } catch (err) {
+            console.error('Error loading chapter count for initial book:', err.message);
           }
-          
-          setError(null);
-        } catch (fetchErr) {
-          console.error('Fetch failed:', fetchErr);
-          throw fetchErr;
         }
+        
+        setError(null);
       } catch (err) {
         const errorMsg = `Failed to load Bible books: ${err.message}`;
         console.error(errorMsg);
         setError(errorMsg);
-        
-        // Use fallback data if we have a critical error
-        setBooks(FALLBACK_BOOKS);
-        setCurrentBook(FALLBACK_BOOKS[0]);
-        setChapterCount(FALLBACK_CHAPTERS);
-        setUseFallback(true);
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchBooks();
-  }, [API_BASE_URL, useFallback]);
+  }, []);
 
   // Fetch verses when book or chapter changes
   useEffect(() => {
@@ -212,168 +115,68 @@ export const BibleProvider = ({ children }) => {
       
       setIsLoading(true);
       try {
-        if (useFallback) {
-          console.log('Using fallback verses data');
-          // Provide simple fallback verses when API access fails
-          const fallbackVerses = Array.from({length: 31}, (_, i) => ({
-            id: `fallback-${i+1}`,
-            book: currentBook,
-            chapter: currentChapter,
-            verse: i+1,
-            text: `Fallback verse ${i+1} content for ${currentBook} ${currentChapter}:${i+1}`
-          }));
-          
-          setVerses(fallbackVerses);
-          setError(null);
-          setIsLoading(false);
-          return;
-        }
-        
-        if (!API_BASE_URL) {
-          throw new Error('API base URL is not available');
-        }
-        
         const endpoint = `${API_BASE_URL}/verses/${currentBook}/${currentChapter}`;
-        console.log('Fetching verses from:', endpoint);
-        console.log('Environment:', process.env.NODE_ENV);
-        console.log('Current book:', currentBook);
-        console.log('Current chapter:', currentChapter);
+        console.log('Fetching verses from:', endpoint); // Debug log
         
-        try {
-          const response = await fetch(endpoint, {
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          
-          // Log response status before parsing
-          console.log('Response status:', response.status, response.statusText);
-          
-          // Create fallback verses data
-          const fallbackVerses = Array.from({length: 31}, (_, i) => ({
-            id: `fallback-${i+1}`,
-            book: currentBook,
-            chapter: currentChapter,
-            verse: i+1,
-            text: `Fallback verse ${i+1} content for ${currentBook} ${currentChapter}:${i+1}`
-          }));
-          
-          const data = await handleApiResponse(
-            response, 
-            'Failed to fetch verses',
-            fallbackVerses
-          );
-          
-          console.log('Parsed verses data length:', data.length);
-          if (data.length > 0) {
-            console.log('First verse sample:', data[0]);
+        const response = await fetch(endpoint, {
+          headers: {
+            'Accept': 'application/json'
           }
-          
-          setVerses(data);
-          setError(null);
-        } catch (fetchErr) {
-          console.error('Verses fetch failed:', fetchErr);
-          throw fetchErr;
-        }
+        });
+        
+        const data = await handleApiResponse(response, 'Failed to fetch verses');
+        console.log('Parsed verses data:', data); // Debug log
+        
+        setVerses(data);
+        setError(null);
       } catch (err) {
         const errorMsg = `Failed to load verses: ${err.message}`;
         console.error(errorMsg);
         setError(errorMsg);
-        
-        // Use fallback verses when API fails
-        const fallbackVerses = Array.from({length: 31}, (_, i) => ({
-          id: `fallback-${i+1}`,
-          book: currentBook,
-          chapter: currentChapter,
-          verse: i+1,
-          text: `Fallback verse ${i+1} content for ${currentBook} ${currentChapter}:${i+1}`
-        }));
-        
-        setVerses(fallbackVerses);
-        setUseFallback(true);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchVerses();
-  }, [currentBook, currentChapter, API_BASE_URL, useFallback]);
+  }, [currentBook, currentChapter]);
 
   // Function to fetch chapter count for a book
   const fetchChapterCount = useCallback(async (book) => {
-    if (!book) return 1;
+    if (!book) return;
     
     try {
       if (chapterCount[book]) {
         return chapterCount[book]; // Return cached count if available
       }
       
-      if (useFallback) {
-        const count = FALLBACK_CHAPTERS[book] || 30;
-        setChapterCount(prev => ({
-          ...prev,
-          [book]: count
-        }));
-        return count;
-      }
-      
-      if (!API_BASE_URL) {
-        throw new Error('API base URL is not available');
-      }
-      
       const endpoint = `${API_BASE_URL}/chapters/${book}`;
       console.log('Fetching chapter count from:', endpoint);
       
-      try {
-        const response = await fetch(endpoint, {
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        });
-        
-        // Fallback chapter list if needed
-        const fallbackChapters = Array.from(
-          {length: FALLBACK_CHAPTERS[book] || 30}, 
-          (_, i) => i + 1
-        );
-        
-        const data = await handleApiResponse(
-          response, 
-          'Failed to fetch chapter count',
-          fallbackChapters
-        );
-        
-        console.log('Parsed chapter count:', data);
-        
-        // Assuming the API returns an array of chapter numbers
-        const count = data.count || data.length || 1;
-        
-        // Update chapter count in state
-        setChapterCount(prev => ({
-          ...prev,
-          [book]: count
-        }));
-        
-        return count;
-      } catch (fetchErr) {
-        console.error('Chapter count fetch failed:', fetchErr);
-        throw fetchErr;
-      }
-    } catch (err) {
-      console.error(`Failed to load chapter count for ${book}:`, err.message);
+      const response = await fetch(endpoint, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
-      // Use fallback chapter count
-      const fallbackCount = FALLBACK_CHAPTERS[book] || 30;
+      const data = await handleApiResponse(response, 'Failed to fetch chapter count');
+      console.log('Parsed chapter count:', data);
+      
+      // Assuming the API returns { count: number }
+      const count = data.count || data.length || 1;
+      
+      // Update chapter count in state
       setChapterCount(prev => ({
         ...prev,
-        [book]: fallbackCount
+        [book]: count
       }));
       
-      return fallbackCount;
+      return count;
+    } catch (err) {
+      console.error(`Failed to load chapter count for ${book}:`, err.message);
+      return 1; // Default to 1 chapter if error
     }
-  }, [chapterCount, API_BASE_URL, useFallback]);
+  }, [chapterCount]);
 
   // Load specific book and chapter
   const loadChapter = useCallback(async (book, chapter) => {

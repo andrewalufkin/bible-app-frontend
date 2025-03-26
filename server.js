@@ -4,48 +4,21 @@ const path = require('path');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 
-// Get backend URL from environment variable
-const BACKEND_URL = process.env.BACKEND_URL || 'http://your-flask-backend-url.railway.app';
-console.log('Using backend URL:', BACKEND_URL);
+// Get backend URL from Railway environment variables
+// NOTE: In Railway, use BACKEND_URL for the server.js Express app
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+console.log('Server using BACKEND_URL:', BACKEND_URL);
 
-// Add an API test endpoint for diagnosing issues
-app.get('/api-test', (req, res) => {
-  res.json({
-    environment: process.env.NODE_ENV,
-    backend_url: BACKEND_URL,
-    timestamp: new Date().toISOString(),
-    message: 'Frontend server is working!'
-  });
-});
-
-// Add request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
-
-// Proxy API requests to the backend - WITHOUT stripping /api
+// Proxy API requests to the backend
 app.use('/api', createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
-    logLevel: 'debug',
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`Proxying ${req.method} ${req.url} to ${BACKEND_URL}${proxyReq.path}`);
-    },
-    onProxyRes: (proxyRes, req, res) => {
-      console.log(`Proxy response from ${req.url}: ${proxyRes.statusCode}`);
-      // Log headers for debugging
-      const headers = JSON.stringify(proxyRes.headers);
-      console.log(`Response headers: ${headers}`);
+    pathRewrite: {
+        '^/api': '' // Remove /api prefix when forwarding to backend
     },
     onError: (err, req, res) => {
-      console.error('Proxy error:', err);
-      // Send a more useful error response
-      res.status(500).json({ 
-        error: 'Proxy error', 
-        message: err.message,
-        timestamp: new Date().toISOString()
-      });
+        console.error('Proxy error:', err);
+        res.status(500).json({ error: 'Proxy error', message: err.message });
     }
 }));
 
