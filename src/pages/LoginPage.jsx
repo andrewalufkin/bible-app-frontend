@@ -1,6 +1,6 @@
 // src/pages/LoginPage.jsx
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage = () => {
@@ -10,7 +10,18 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated } = useAuth();
+  
+  // Get the intended destination from location state or default to home
+  const from = location.state?.from?.pathname || '/';
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +30,8 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      navigate('/');
+      // Navigate to the page they were trying to access
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,6 +45,11 @@ const LoginPage = () => {
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
           Sign in to your account
         </h2>
+        {from !== '/' && (
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Please sign in to access {from}
+          </p>
+        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

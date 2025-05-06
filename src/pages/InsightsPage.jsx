@@ -105,25 +105,21 @@ const InsightsPage = () => {
           // Filter out empty notes
           const filteredNotes = notesData.filter(note => note.content?.trim());
           setVerseNotes(filteredNotes);
+
+          // Find the chapter note from the fetched notes
+          const chapterNoteData = filteredNotes.find(note => note.note_type === 'chapter');
+          if (chapterNoteData) {
+            setChapterNote(chapterNoteData);
+            setEditedChapterNote(chapterNoteData.content || '');
+          } else {
+            // Handle case where no chapter note exists yet
+            setChapterNote(null);
+            setEditedChapterNote('');
+          }
+
         } else if (notesResponse.status !== 404) {
           // Only log error if it's not a 404 (no notes found)
           console.error('Failed to fetch chapter notes:', notesResponse.statusText);
-        }
-        
-        // Fetch chapter note
-        const chapterNoteResponse = await fetch(`${API_BASE_URL}/notes/chapter/${book}/${chapter}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        if (chapterNoteResponse.ok) {
-          const chapterNoteData = await chapterNoteResponse.json();
-          setChapterNote(chapterNoteData);
-          setEditedChapterNote(chapterNoteData.content || '');
-        } else if (chapterNoteResponse.status !== 404) {
-          // Only throw error if it's not a 404 (no note found)
-          console.error('Failed to fetch chapter note:', chapterNoteResponse.statusText);
         }
         
         // Fetch existing insights for this chapter

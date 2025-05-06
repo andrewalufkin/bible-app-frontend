@@ -1,6 +1,6 @@
 // src/App.js
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { BibleProvider } from './contexts/BibleContext';
 import { AuthProvider } from './contexts/AuthContext';
 import MainLayout from './layouts/MainLayout';
@@ -25,69 +25,92 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Authentication Router Guard
+const AuthGuard = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const publicPaths = ['/login', '/register'];
+    
+    if (!isAuthenticated && !publicPaths.includes(location.pathname)) {
+      // Save the current location they were trying to go to
+      navigate('/login', { 
+        state: { from: location },
+        replace: true 
+      });
+    }
+  }, [isAuthenticated, location, navigate]);
+
+  return children;
+};
+
 function AppContent() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      
-      {/* Public Route */}
-      <Route path="/" element={
-        <MainLayout>
-          <BibleReader />
-        </MainLayout>
-      } />
-
-      {/* Bible Routes */}
-      <Route path="/bible/:book/:chapter" element={
-        <MainLayout>
-          <BibleReader />
-        </MainLayout>
-      } />
-
-      {/* Insights Route */}
-      <Route path="/insights/:book/:chapter" element={
-        <ProtectedRoute>
+    <AuthGuard>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        
+        {/* Public Route */}
+        <Route path="/" element={
           <MainLayout>
-            <InsightsPage />
+            <BibleReader />
           </MainLayout>
-        </ProtectedRoute>
-      } />
+        } />
 
-      {/* Protected & Premium Routes */}
-      <Route path="/search" element={
-        <ProtectedRoute>
+        {/* Bible Routes */}
+        <Route path="/bible/:book/:chapter" element={
           <MainLayout>
-            <SearchPage />
+            <BibleReader />
           </MainLayout>
-        </ProtectedRoute>
-      } />
+        } />
 
-      <Route path="/notes" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <NotesPage />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
+        {/* Insights Route */}
+        <Route path="/insights/:book/:chapter" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <InsightsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
 
-      <Route path="/friends" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <FriendsPage />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
+        {/* Protected & Premium Routes */}
+        <Route path="/search" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SearchPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
 
-      {/* Protected but not Premium Route */}
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <SettingsPage />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-    </Routes>
+        <Route path="/notes" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <NotesPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/friends" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <FriendsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Protected but not Premium Route */}
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SettingsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </AuthGuard>
   );
 }
 

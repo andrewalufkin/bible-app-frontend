@@ -1,5 +1,6 @@
 // src/contexts/BibleContext.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { BOOK_CHAPTER_COUNTS } from '../constants/bibleData';
 
 const BibleContext = createContext();
 
@@ -11,7 +12,7 @@ export const BibleProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chapterCount, setChapterCount] = useState({}); // Store chapter counts for each book
-// irrelevant change
+
   const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
   console.log('Using API URL:', API_BASE_URL); // Debug log
 
@@ -80,31 +81,15 @@ export const BibleProvider = ({ children }) => {
           const firstBook = data[0]; // Usually Genesis
           setCurrentBook(firstBook);
           
-          // Also load chapter count for the first book
-          try {
-            // Use a local implementation to avoid dependency issues
-            const endpoint = `${API_BASE_URL}/chapters/${firstBook}`;
-            console.log('Fetching initial chapter count from:', endpoint);
-            
-            const chapterResponse = await fetchWithTimeout(endpoint, {}, 30000);
-            
-            const chapterData = await handleApiResponse(chapterResponse, 'Failed to fetch chapter count');
-            console.log('Initial chapter count:', chapterData);
-            
-            // Assuming the API returns an array of chapter numbers
-            const count = chapterData.length || 1;
-            
-            // Update chapter count in state
-            setChapterCount(prev => ({
-              ...prev,
-              [firstBook]: count
-            }));
-            
-            if (count > 0) {
-              setCurrentChapter(1);
-            }
-          } catch (err) {
-            console.error('Error loading chapter count for initial book:', err.message);
+          // Set chapter count for the first book using our constant
+          const count = BOOK_CHAPTER_COUNTS[firstBook] || 1;
+          setChapterCount(prev => ({
+            ...prev,
+            [firstBook]: count
+          }));
+          
+          if (count > 0) {
+            setCurrentChapter(1);
           }
         }
         
@@ -150,38 +135,11 @@ export const BibleProvider = ({ children }) => {
     fetchVerses();
   }, [currentBook, currentChapter]);
 
-  // Function to fetch chapter count for a book
-  const fetchChapterCount = useCallback(async (book) => {
-    if (!book) return;
-    
-    try {
-      if (chapterCount[book]) {
-        return chapterCount[book]; // Return cached count if available
-      }
-      
-      const endpoint = `${API_BASE_URL}/chapters/${book}`;
-      console.log('Fetching chapter count from:', endpoint);
-      
-      const response = await fetchWithTimeout(endpoint, {}, 30000);
-      
-      const data = await handleApiResponse(response, 'Failed to fetch chapter count');
-      console.log('Parsed chapter count:', data);
-      
-      // Assuming the API returns { count: number }
-      const count = data.count || data.length || 1;
-      
-      // Update chapter count in state
-      setChapterCount(prev => ({
-        ...prev,
-        [book]: count
-      }));
-      
-      return count;
-    } catch (err) {
-      console.error(`Failed to load chapter count for ${book}:`, err.message);
-      return 1; // Default to 1 chapter if error
-    }
-  }, [chapterCount, API_BASE_URL]);
+  // Function to get chapter count for a book
+  const getChapterCount = useCallback((book) => {
+    if (!book) return 1;
+    return BOOK_CHAPTER_COUNTS[book] || 1;
+  }, []);
 
   // Load specific book and chapter
   const loadChapter = useCallback(async (book, chapter) => {
@@ -190,26 +148,23 @@ export const BibleProvider = ({ children }) => {
     setCurrentBook(book);
     setCurrentChapter(chapter);
     
-    // Make sure we have chapter count for this book
-    if (!chapterCount[book]) {
-      try {
-        await fetchChapterCount(book);
-        return Promise.resolve();
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
+    // Set chapter count for the book using our constant
+    const count = BOOK_CHAPTER_COUNTS[book] || 1;
+    setChapterCount(prev => ({
+      ...prev,
+      [book]: count
+    }));
     
     return Promise.resolve();
-  }, [chapterCount, fetchChapterCount]);
+  }, []);
 
   // Generate chapter options for the current book
   const chapterOptions = useMemo(() => {
-    if (!currentBook || !chapterCount[currentBook]) return [];
+    if (!currentBook) return [];
     
-    const count = chapterCount[currentBook];
+    const count = BOOK_CHAPTER_COUNTS[currentBook] || 1;
     return Array.from({ length: count }, (_, i) => i + 1);
-  }, [currentBook, chapterCount]);
+  }, [currentBook]);
 
   const value = {
     books,
@@ -222,7 +177,7 @@ export const BibleProvider = ({ children }) => {
     setCurrentChapter,
     chapterOptions,
     loadChapter,
-    fetchChapterCount
+    getChapterCount
   };
 
   return (

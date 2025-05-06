@@ -2,11 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SettingsPage = () => {
   const { user, logout, updateUser } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -186,40 +189,61 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-2xl mx-auto p-6 dark:text-gray-100">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 dark:bg-red-900 dark:border-red-700 dark:text-red-300">
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 dark:bg-gray-800">
+        <h2 className="text-xl font-semibold mb-4">Appearance</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="font-medium">Theme</label>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Switch between light and dark mode</p>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? (
+              <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            ) : (
+              <Sun className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6 mb-6 dark:bg-gray-800">
         <h2 className="text-xl font-semibold mb-4">Account Information</h2>
         <div className="space-y-4">
           <div>
             <label className="font-medium">Username</label>
-            <p className="text-gray-600">{user?.username}</p>
+            <p className="text-gray-600 dark:text-gray-400">{user?.username}</p>
           </div>
           <div>
             <label className="font-medium">Email</label>
-            <p className="text-gray-600">{user?.email}</p>
+            <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
           </div>
           <div>
             <label className="font-medium">Account Type</label>
-            <p className="text-gray-600">{user?.is_premium ? 'Premium' : 'Basic'}</p>
+            <p className="text-gray-600 dark:text-gray-400">{user?.is_premium ? 'Premium' : 'Basic'}</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 dark:bg-gray-800">
         <h2 className="text-xl font-semibold mb-4">Note Privacy Settings</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <label className="font-medium">View Friends' Notes</label>
-              <p className="text-sm text-gray-600">Allow viewing study notes from your friends</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Allow viewing study notes from your friends</p>
             </div>
             <div className="relative">
               <input
@@ -232,7 +256,7 @@ const SettingsPage = () => {
               />
               <label
                 htmlFor="view-notes"
-                className="flex w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 cursor-pointer"
+                className="flex w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border dark:border-gray-600 dark:after:bg-gray-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500 cursor-pointer"
               />
             </div>
           </div>
@@ -240,7 +264,7 @@ const SettingsPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <label className="font-medium">Share Notes with Friends</label>
-              <p className="text-sm text-gray-600">Allow friends to see your study notes</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Allow friends to see your study notes</p>
             </div>
             <div className="relative">
               <input
@@ -253,14 +277,14 @@ const SettingsPage = () => {
               />
               <label
                 htmlFor="share-notes"
-                className="flex w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 cursor-pointer"
+                className="flex w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border dark:border-gray-600 dark:after:bg-gray-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500 cursor-pointer"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6 dark:bg-gray-800">
         <h2 className="text-xl font-semibold mb-4">AI Insights Preferences</h2>
         <div className="space-y-6">
           {/* Writing Style */}
@@ -269,13 +293,13 @@ const SettingsPage = () => {
             <select
               value={aiPreferences.writing_style}
               onChange={(e) => handleAiPreferenceChange('writing_style', e.target.value)}
-              className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="devotional">Devotional</option>
               <option value="academic">Academic</option>
               <option value="casual">Casual</option>
             </select>
-            <p className="text-sm text-gray-600 mt-1">The tone and approach of AI-generated insights</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">The tone and approach of AI-generated insights</p>
           </div>
 
           {/* Knowledge Depth */}
@@ -284,13 +308,13 @@ const SettingsPage = () => {
             <select
               value={aiPreferences.depth_level}
               onChange={(e) => handleAiPreferenceChange('depth_level', e.target.value)}
-              className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="scholarly">Scholarly</option>
             </select>
-            <p className="text-sm text-gray-600 mt-1">Level of theological and analytical depth</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Level of theological and analytical depth</p>
           </div>
 
           {/* Response Length */}
@@ -305,13 +329,13 @@ const SettingsPage = () => {
               step="100"
               value={aiPreferences.response_length}
               onChange={(e) => handleAiPreferenceChange('response_length', parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             />
-            <div className="flex justify-between text-sm text-gray-600 mt-1">
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-1">
               <span>Shorter</span>
               <span>Longer</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">Controls the length of AI-generated insights in characters</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Controls the length of AI-generated insights in characters</p>
           </div>
 
           {/* Challenge Level */}
@@ -326,13 +350,13 @@ const SettingsPage = () => {
               step="0.1"
               value={isNaN(aiPreferences.challenge_level) ? 0.5 : aiPreferences.challenge_level}
               onChange={(e) => handleAiPreferenceChange('challenge_level', parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             />
-            <div className="flex justify-between text-sm text-gray-600 mt-1">
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-1">
               <span>Affirming</span>
               <span>Challenging</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">How much the AI should challenge your existing understanding</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">How much the AI should challenge your existing understanding</p>
           </div>
 
           {/* Time Orientation */}
@@ -347,13 +371,13 @@ const SettingsPage = () => {
               step="0.1"
               value={isNaN(aiPreferences.time_orientation) ? 0.5 : aiPreferences.time_orientation}
               onChange={(e) => handleAiPreferenceChange('time_orientation', parseFloat(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             />
-            <div className="flex justify-between text-sm text-gray-600 mt-1">
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-1">
               <span>Historical Focus</span>
               <span>Modern Application</span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">Balance between original context and modern relevance</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Balance between original context and modern relevance</p>
           </div>
 
           {/* Preferred Topics */}
@@ -365,11 +389,11 @@ const SettingsPage = () => {
                 value={topicInput}
                 onChange={(e) => setTopicInput(e.target.value)}
                 placeholder="Add a topic (e.g., prayer, forgiveness)"
-                className="flex-1 p-2 border border-gray-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 p-2 border border-gray-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
               />
               <button
                 onClick={addTopic}
-                className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600"
+                className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
               >
                 Add
               </button>
@@ -380,23 +404,23 @@ const SettingsPage = () => {
                   <span>{topic}</span>
                   <button 
                     onClick={() => removeTopic(topic)}
-                    className="ml-2 text-blue-500 hover:text-blue-700"
+                    className="ml-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     ×
                   </button>
                 </div>
               ))}
               {aiPreferences.preferred_topics.length === 0 && (
-                <p className="text-sm text-gray-500 italic">No preferred topics added</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">No preferred topics added</p>
               )}
             </div>
-            <p className="text-sm text-gray-600 mt-1">Topics you want the AI to focus on in its insights</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Topics you want the AI to focus on in its insights</p>
           </div>
 
           {/* User Context */}
           <div>
             <label className="font-medium block mb-2">Personal Context</label>
-            <p className="text-sm text-gray-600 mb-2">Add information about yourself to make insights more personalized</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Add information about yourself to make insights more personalized</p>
             
             <div className="grid grid-cols-2 gap-2 mb-2">
               <input
@@ -404,19 +428,19 @@ const SettingsPage = () => {
                 value={userContextKey}
                 onChange={(e) => setUserContextKey(e.target.value)}
                 placeholder="Label (e.g., occupation)"
-                className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
               />
               <input
                 type="text"
                 value={userContextValue}
                 onChange={(e) => setUserContextValue(e.target.value)}
                 placeholder="Value (e.g., teacher)"
-                className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
               />
             </div>
             <button
               onClick={addUserContext}
-              className="px-4 py-2 mb-4 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              className="px-4 py-2 mb-4 bg-blue-500 text-white rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
             >
               Add Context
             </button>
@@ -429,14 +453,14 @@ const SettingsPage = () => {
                   </div>
                   <button 
                     onClick={() => removeUserContext(key)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                   >
                     Remove
                   </button>
                 </div>
               ))}
               {Object.keys(aiPreferences.user_context || {}).length === 0 && (
-                <p className="text-sm text-gray-500 italic">No personal context added</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">No personal context added</p>
               )}
             </div>
           </div>
@@ -444,7 +468,7 @@ const SettingsPage = () => {
           <button
             onClick={saveAiPreferences}
             disabled={isLoading}
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
           >
             {isLoading ? 'Saving...' : 'Save AI Preferences'}
           </button>
@@ -454,14 +478,14 @@ const SettingsPage = () => {
       <div className="space-y-4">
         <button
           onClick={handleLogout}
-          className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors"
+          className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors dark:bg-gray-700 dark:hover:bg-gray-600"
         >
           Log Out
         </button>
 
         <button
           onClick={handleDeleteAccount}
-          className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors dark:bg-red-700 dark:hover:bg-red-800"
         >
           Delete Account
         </button>

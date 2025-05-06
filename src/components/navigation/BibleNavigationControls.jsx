@@ -40,22 +40,22 @@ const BibleNavigationControls = () => {
         <div className="relative inline-block" ref={insightsDropdownRef}>
           <button 
             onClick={() => setShowInsightsDropdown(!showInsightsDropdown)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center space-x-2 px-4 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-600"
           >
-            <Lightbulb size={16} className="text-blue-600" />
+            <Lightbulb size={16} className="text-blue-600 dark:text-blue-400" />
             <span className="font-medium">AI Insights</span>
-            <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${showInsightsDropdown ? 'transform rotate-180' : ''}`} />
+            <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${showInsightsDropdown ? 'transform rotate-180' : ''} dark:text-gray-400`} />
           </button>
 
           {/* Dropdown panel */}
           {showInsightsDropdown && (
-            <div className="absolute z-50 mt-1 w-72 bg-white border rounded-lg shadow-lg p-4 animate-fadeIn">
-              <p className="text-sm text-gray-600 mb-3">
+            <div className="absolute z-50 mt-1 w-72 bg-white border rounded-lg shadow-lg p-4 animate-fadeIn dark:bg-gray-800 dark:border-gray-700">
+              <p className="text-sm text-gray-600 mb-3 dark:text-gray-300">
                 Get AI-powered insights for {currentBook} {currentChapter}
               </p>
               <button
                 onClick={handleNavigateToInsights}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 View Insights
               </button>

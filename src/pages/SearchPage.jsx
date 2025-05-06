@@ -4,21 +4,31 @@ import { Search as SearchIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const SearchResult = ({ verse }) => (
-  <div className="p-4 border rounded-lg mb-4 hover:bg-gray-50">
-    <div className="font-semibold text-gray-700 mb-2">
-      {verse.book_name} {verse.chapter}:{verse.verse}
-    </div>
-    <div className="text-gray-600">{verse.text}</div>
-  </div>
-);
+const SearchResult = ({ verse }) => {
+  // URL-encode the book name for the path
+  const bookPath = encodeURIComponent(verse.book);
+  const chapterPath = verse.chapter; // Chapter number shouldn't need encoding
+
+  return (
+    <Link to={`/bible/${bookPath}/${chapterPath}`} className="block no-underline text-inherit hover:no-underline">
+      <div className="p-4 border rounded-lg mb-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150 ease-in-out">
+        <div className="font-semibold text-gray-700 dark:text-gray-200 mb-2">
+          {verse.book} {verse.chapter}:{verse.verse}
+        </div>
+        <div className="text-gray-600 dark:text-gray-400">{verse.text}</div>
+      </div>
+    </Link>
+  );
+};
 
 const SearchPage = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState(null); // For non-error messages from AI
   const [hasSearched, setHasSearched] = useState(false);
+  const [useAiSearch, setUseAiSearch] = useState(false); // State for AI toggle
   const { isAuthenticated } = useAuth();
 
   const handleSearch = async (e) => {
@@ -27,6 +37,8 @@ const SearchPage = () => {
 
     setIsLoading(true);
     setError(null);
+    setInfoMessage(null); // Clear previous info messages
+    setResults([]); // Clear previous results
     setHasSearched(true);
 
     try {
@@ -35,25 +47,40 @@ const SearchPage = () => {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/bible/search?q=${encodeURIComponent(query.trim())}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+      // Determine the API endpoint based on the toggle state
+      const searchEndpoint = useAiSearch ? '/api/bible/ai-search' : '/api/bible/search';
+      const apiUrl = `${process.env.REACT_APP_BACKEND_URL}${searchEndpoint}?q=${encodeURIComponent(query.trim())}`;
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
+      });
 
       if (!response.ok) {
-        throw new Error(response.status === 401 ? 'Authentication required' : 'Search failed');
+        // Handle specific backend errors if possible, otherwise generic message
+        let errorMsg = 'Search failed';
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || (response.status === 401 ? 'Authentication required' : `Search failed (${response.status})`);
+        } catch (jsonError) {
+            errorMsg = `Search failed (${response.status})`;
+        }
+        throw new Error(errorMsg);
       }
       
       const data = await response.json();
-      if (Array.isArray(data)) {
+
+      // Handle potential info/warning messages from AI endpoint
+      if (data.message && data.type) {
+          setInfoMessage({ text: data.message, type: data.type });
+          setResults([]);
+      } else if (Array.isArray(data)) {
         setResults(data);
       } else {
         console.error('Unexpected response format:', data);
         setResults([]);
+        setError('Received unexpected data from server.');
       }
     } catch (err) {
       setError(err.message);
@@ -89,7 +116,27 @@ const SearchPage = () => {
 
   return (
     <div className="w-full h-full">
-      <h1 className="text-3xl font-bold mb-6">Search the Bible</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Search the Bible</h1>
+        <div className="flex items-center">
+          <label htmlFor="ai-toggle" className="flex items-center cursor-pointer">
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                id="ai-toggle" 
+                className="sr-only" 
+                checked={useAiSearch}
+                onChange={() => setUseAiSearch(!useAiSearch)} 
+              />
+              <div className={`block w-10 h-6 rounded-full transition ${useAiSearch ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${useAiSearch ? 'translate-x-4' : ''}`}></div>
+            </div>
+            <div className="ml-3 text-sm text-gray-600">
+              Search with AI
+            </div>
+          </label>
+        </div>
+      </div>
       
       <form onSubmit={handleSearch} className="mb-8">
         <div className="relative">
@@ -97,8 +144,10 @@ const SearchPage = () => {
             type="text"
             value={query}
             onChange={handleQueryChange}
-            placeholder="Search by topics, stories, or ideas (e.g., 'Samaritan woman at the well')"
-            className="w-full p-4 pr-12 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={useAiSearch 
+              ? "Ask about topics, stories, or ideas (e.g., 'woman at the well')" 
+              : "Search Bible text (e.g., 'love thy neighbor')"} 
+            className="w-full p-4 pr-12 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 dark:focus:ring-blue-400 dark:focus:border-blue-400"
           />
           <button
             type="submit"
@@ -120,6 +169,13 @@ const SearchPage = () => {
         </div>
       )}
 
+      {/* Display Info/Warning Messages */}
+      {infoMessage && (
+        <div className={`px-4 py-3 rounded-lg mb-4 ${infoMessage.type === 'warning' ? 'bg-yellow-50 border border-yellow-400 text-yellow-700' : 'bg-blue-50 border border-blue-400 text-blue-700'}`}>
+          {infoMessage.text}
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
           {error}
@@ -133,15 +189,20 @@ const SearchPage = () => {
         </div>
       )}
 
-      {!isLoading && !error && results.length > 0 && (
+      {!isLoading && !error && !infoMessage && results.length > 0 && (
         <div className="space-y-4">
+          {useAiSearch && (
+            <div className="mb-2 text-sm text-gray-600 italic">
+              AI suggested the following results based on your query:
+            </div>
+          )}
           {results.map((verse, index) => (
             <SearchResult key={index} verse={verse} />
           ))}
         </div>
       )}
 
-      {!isLoading && !error && hasSearched && results.length === 0 && query && (
+      {!isLoading && !error && !infoMessage && hasSearched && results.length === 0 && query && (
         <div className="text-center text-gray-600 py-8">
           No results found for "{query}"
         </div>

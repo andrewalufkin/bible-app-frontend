@@ -5,10 +5,10 @@ import AutoExpandingTextarea from '../AutoExpandingTextarea';
 
 const ChapterNotesPanel = ({ book, chapter, onClose }) => {
   const { 
-    fetchChapterNotes, 
+    fetchSingleChapterNote,
     saveChapterNote, 
-    isLoading: { chapterNotes: isLoading },
-    error: { chapterNotes: apiError }
+    isLoading: { singleChapterNote: isLoadingNote, chapterNotes: isSavingNote },
+    error: { singleChapterNote: fetchError, chapterNotes: saveError }
   } = useNotes();
   
   const [chapterNote, setChapterNote] = useState('');
@@ -29,36 +29,29 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
-  // Load chapter note when component mounts
+  // Load chapter note using the hook function
   useEffect(() => {
+    let isMounted = true;
     const loadChapterNote = async () => {
+      setError(null);
       try {
-        const response = await fetch(
-          `${process.env.REACT_APP_BACKEND_URL}/api/notes/chapter/${book}/${chapter}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        if (response.ok) {
-          const note = await response.json();
+        const note = await fetchSingleChapterNote(book, chapter);
+        if (isMounted) {
           setChapterNote(note.content);
           setEditedNote(note.content);
-        } else if (response.status !== 404) {
-          // Only show error if it's not a 404 (no note found)
-          setError('Failed to load chapter note');
         }
       } catch (err) {
-        setError('Failed to load chapter note');
-        console.error('Error loading chapter note:', err);
+        if (isMounted) {
+          setError(fetchError || err.message || 'Failed to load chapter note');
+          console.error('Error loading chapter note:', err);
+        }
       }
     };
     
     loadChapterNote();
-  }, [book, chapter]);
+
+    return () => { isMounted = false; };
+  }, [book, chapter, fetchSingleChapterNote, fetchError]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -66,6 +59,7 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
   };
 
   const handleSave = async () => {
+    setError(null);
     try {
       const trimmedNote = editedNote.trim();
       const noteData = {
@@ -74,20 +68,14 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
         content: trimmedNote
       };
       
-      const savedNote = await saveChapterNote(noteData);
+      const savedNoteResponse = await saveChapterNote(noteData);
       
-      if (savedNote) {
-        setChapterNote(savedNote.content);
-        setEditedNote(savedNote.content);
-      } else {
-        setChapterNote('');
-        setEditedNote('');
-      }
-      
+      const noteContent = savedNoteResponse.note?.content || '';
+      setChapterNote(noteContent);
+      setEditedNote(noteContent);
       setIsEditing(false);
-      setError(null);
     } catch (err) {
-      setError(err.message || 'Failed to save chapter note');
+      setError(saveError || err.message || 'Failed to save chapter note');
       console.error('Error saving chapter note:', err);
     }
   };
@@ -123,6 +111,7 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
                 onClick={handleEdit}
                 className="p-1 rounded hover:bg-gray-200 text-gray-600"
                 title="Edit note"
+                disabled={isLoadingNote}
               >
                 <Edit2 className="w-4 h-4" />
               </button>
@@ -133,15 +122,15 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
                   onClick={handleSave}
                   className="p-1 rounded hover:bg-green-100 text-green-600"
                   title="Save changes"
-                  disabled={isLoading}
+                  disabled={isSavingNote}
                 >
-                  <Check className="w-4 h-4" />
+                  {isSavingNote ? <div className="w-4 h-4 border-t-2 border-green-600 rounded-full animate-spin"></div> : <Check className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={handleCancel}
                   className="p-1 rounded hover:bg-red-100 text-red-600"
                   title="Cancel changes"
-                  disabled={isLoading}
+                  disabled={isSavingNote}
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
@@ -149,19 +138,25 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
             )}
           </div>
           
-          {error && (
+          {(error || fetchError || saveError) && (
             <div className="text-red-600 text-sm mb-2">
-              {error}
+              {error || fetchError || saveError}
             </div>
           )}
           
-          {isEditing ? (
+          {isLoadingNote ? (
+            <div className="w-full p-3 bg-white border rounded min-h-[150px] animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-full mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          ) : isEditing ? (
             <AutoExpandingTextarea
               value={editedNote}
               onChange={(e) => setEditedNote(e.target.value)}
               placeholder="Add your chapter notes here..."
               className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-              disabled={isLoading}
+              disabled={isSavingNote}
               minRows={6}
             />
           ) : (

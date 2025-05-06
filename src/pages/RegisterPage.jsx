@@ -1,6 +1,6 @@
 // src/pages/RegisterPage.jsx
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const RegisterPage = () => {
@@ -12,9 +12,22 @@ const RegisterPage = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const location = useLocation();
+  const { register, isAuthenticated } = useAuth();
+  
+  // Get the intended destination from location state or default to home
+  const from = location.state?.from?.pathname || '/';
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,8 +50,15 @@ const RegisterPage = () => {
     setIsLoading(true);
 
     try {
-      await register(formData.email, formData.password, formData.username);
-      navigate('/');
+      const result = await register(formData.email, formData.password, formData.username);
+      
+      if (result.needsConfirmation) {
+        setRegisteredEmail(formData.email);
+        setShowConfirmationDialog(true);
+      } else {
+        // Only navigate if no confirmation needed
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,12 +66,41 @@ const RegisterPage = () => {
     }
   };
 
+  const ConfirmationDialog = () => (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Check Your Email
+        </h3>
+        <p className="text-gray-600 mb-4">
+          We've sent a confirmation email to <span className="font-medium">{registeredEmail}</span>. 
+          Please check your inbox and click the confirmation link to activate your account.
+        </p>
+        <div className="flex justify-end space-x-4">
+          <button
+            onClick={() => navigate('/login')}
+            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      {showConfirmationDialog && <ConfirmationDialog />}
+      
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
           Create your account
         </h2>
+        {from !== '/' && (
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Please create an account to access {from}
+          </p>
+        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -138,6 +187,7 @@ const RegisterPage = () => {
             <div className="text-center">
               <Link
                 to="/login"
+                state={{ from: location.state?.from }}
                 className="text-sm text-blue-600 hover:text-blue-500"
               >
                 Already have an account? Sign in

@@ -36,12 +36,16 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to login');
+        // Handle email confirmation case
+        if (data.needsConfirmation) {
+          throw new Error('Please check your email to confirm your account before logging in.');
+        }
+        throw new Error(data.error || 'Failed to login');
       }
 
-      const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
@@ -61,15 +65,27 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password, username }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to register');
+        throw new Error(data.error || 'Failed to register');
       }
 
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
+      // Don't set user or token if email confirmation is needed
+      if (data.needsConfirmation) {
+        return {
+          ...data,
+          needsConfirmation: true
+        };
+      }
+
+      // Only set user and token if registration was successful and no confirmation needed
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+      }
+
       return data;
     } catch (error) {
       throw error;

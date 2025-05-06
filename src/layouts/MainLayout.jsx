@@ -38,12 +38,12 @@ const MainLayout = ({ children }) => {
   }, [isMobile]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row overflow-hidden">
+    <div className="h-screen flex flex-col md:flex-row overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Mobile menu button */}
       {isMobile && (
         <div className="fixed top-4 left-4 z-50">
           <button 
-            className="p-2 bg-gray-800 rounded-full text-white"
+            className="p-2 bg-gray-800 rounded-full text-white dark:bg-gray-700"
             onClick={(e) => {
               e.stopPropagation();
               setShowNav(!showNav);
@@ -71,7 +71,7 @@ const MainLayout = ({ children }) => {
         {/* Content Area with responsive layout */}
         <main className="content-area w-full p-4 overflow-y-auto">
           {/* Navigation Header - Only shown for Bible routes */}
-          <div className="flex justify-between items-center mb-4 py-2">
+          <div className="flex justify-between items-center mb-4 py-2 border-b border-gray-200 dark:border-gray-700">
             <div className="flex-1"></div>
             <div className="flex-1 flex justify-center">
               {isBibleRoute && <BibleNavigationControls />}

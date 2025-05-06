@@ -3,7 +3,7 @@ import BibleVerseWithNotes from '../components/BibleVerseWithNotes';
 import { useBible } from '../contexts/BibleContext';
 
 const BiblePage = () => {
-  const { books, currentBook, currentChapter, verses, isLoading, error, setCurrentBook, setCurrentChapter } = useBible();
+  const { books, currentBook, currentChapter, verses, isLoading, error, setCurrentBook, setCurrentChapter, chapterOptions } = useBible();
 
   if (isLoading) {
     return <div className="p-6">Loading...</div>;
@@ -35,7 +35,7 @@ const BiblePage = () => {
           onChange={(e) => setCurrentChapter(parseInt(e.target.value, 10))}
           className="p-2 border rounded"
         >
-          {Array.from({ length: 150 }, (_, i) => i + 1).map(chapter => (
+          {chapterOptions.map(chapter => (
             <option key={chapter} value={chapter}>Chapter {chapter}</option>
           ))}
         </select>
