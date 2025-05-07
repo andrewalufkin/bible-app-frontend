@@ -4,6 +4,7 @@ import { useBible } from '../../contexts/BibleContext';
 import BibleVerseWithNotes from '../BibleVerseWithNotes';
 import { X, Edit2, Check, XCircle, BookOpen } from 'lucide-react';
 import { useNotes } from '../../hooks/useNotes';
+import { useHighlights } from '../../hooks/useHighlights';
 import AutoExpandingTextarea from '../AutoExpandingTextarea';
 import TruncatedText from '../TruncatedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -269,52 +270,60 @@ const BibleReader = () => {
     currentBook,
     currentChapter,
     verses,
-    isLoading: isBibleLoading,
-    bibleError,
-    loadChapter,
+    isLoading: isLoadingVerses,
+    error: versesError,
+    fetchVerses,
     setCurrentBook,
     setCurrentChapter,
-    chapterOptions,
+    getChapterCount,
+    getVerseCount,
   } = useBible();
 
-  const {
-    chapterNotesCache,
-    isLoadingChapterNotes,
-    isSavingNote,
-    studyNoteError,
+  const { 
+    chapterNotes, 
+    isLoading: isLoadingChapterNotes,
+    error: chapterNotesError, 
+    fetchChapterNotes, 
     saveStudyNote,
-    fetchChapterNotes
+    saveChapterNote,
+    isSavingNote 
   } = useNotes();
+  
+  const { 
+    highlights, 
+    isLoading: isLoadingHighlights,
+    error: highlightsError,
+    fetchHighlights, 
+    updateHighlightsForVerse,
+    clearHighlights 
+  } = useHighlights();
+
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { bookName: urlBookName, chapterNumber: urlChapterNumber } = useParams();
 
   const [activeVerse, setActiveVerse] = useState(null);
-
-  const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
-  const [isChapterNotesOpen, setIsChapterNotesOpen] = useState(false);
+  const [sidePanelVerse, setSidePanelVerse] = useState(null);
+  const [isChapterNotesPanelOpen, setIsChapterNotesPanelOpen] = useState(false);
   
-  const { book: urlBook, chapter: urlChapter } = useParams();
-  const navigate = useNavigate();
-
+  // Effect to fetch verses when book or chapter changes
   useEffect(() => {
-    if (urlBook && urlChapter) {
-      const decodedBook = decodeURIComponent(urlBook);
-      const chapterNumber = parseInt(urlChapter, 10);
-
-      if (decodedBook !== currentBook || chapterNumber !== currentChapter) {
-        if (books && books.includes(decodedBook)) {
-          console.log(`Syncing context from URL: Book=${decodedBook}, Chapter=${chapterNumber}`);
-          setCurrentBook(decodedBook); 
-          setCurrentChapter(chapterNumber);
-        } else {
-          console.warn(`Book "${decodedBook}" from URL not found in available books.`);
-        }
-      }
-    } else if (currentBook && currentChapter) {
-      if (!verses || verses.length === 0) {
-        loadChapter(currentBook, currentChapter);
-      }
+    if (currentBook && currentChapter) {
+      console.log(`[BibleReader] Fetching verses for ${currentBook} ${currentChapter}`);
+      fetchVerses(currentBook, currentChapter);
     }
-  }, [urlBook, urlChapter, currentBook, currentChapter, books, setCurrentBook, setCurrentChapter, navigate, loadChapter, verses]);
+  }, [currentBook, currentChapter, fetchVerses]);
 
+  // Effect to fetch highlights when book or chapter changes
+  useEffect(() => {
+    if (currentBook && currentChapter) {
+      console.log(`[BibleReader] Clearing and fetching highlights for ${currentBook} ${currentChapter}`);
+      clearHighlights(); // Clear previous highlights
+      fetchHighlights(currentBook, currentChapter);
+    }
+  }, [currentBook, currentChapter, fetchHighlights, clearHighlights]);
+
+  // Effect to fetch all notes for the current chapter
   useEffect(() => {
     if (currentBook && currentChapter) {
       fetchChapterNotes(currentBook, currentChapter);
@@ -322,23 +331,31 @@ const BibleReader = () => {
   }, [currentBook, currentChapter, fetchChapterNotes]);
 
   const handleOpenSidePanel = (verse) => {
-    setActiveVerse(verse);
-    setIsChapterNotesOpen(false);
+    // setActiveVerse(verse); // This was causing an issue with the sticky verse logic
+    setSidePanelVerse(verse); // Use separate state for the side panel context
+    setIsChapterNotesPanelOpen(false);
   };
 
   const handleCloseSidePanel = () => {
-    setActiveVerse(null);
+    // setActiveVerse(null);
+    setSidePanelVerse(null);
   };
 
   const handleOpenChapterNotes = () => {
-    setActiveVerse(null);
-    setIsChapterNotesOpen(true);
+    // setActiveVerse(null);
+    setSidePanelVerse(null); // Close verse panel if chapter notes are opened
+    setIsChapterNotesPanelOpen(true);
   };
 
   const handleCloseChapterNotes = () => {
-    setIsChapterNotesOpen(false);
+    setIsChapterNotesPanelOpen(false);
   };
 
+  /*
+  // This useEffect was causing issues with scrolling and verse activation.
+  // The primary active verse for the side panel is now sidePanelVerse.
+  // If a different kind of "active verse" for main view is needed, 
+  // it should be re-evaluated.
   useEffect(() => {
     if (activeVerse) {
       const element = document.getElementById(`verse-${activeVerse.id}`);
@@ -347,18 +364,10 @@ const BibleReader = () => {
       }
     }
   }, [activeVerse]);
+  */
 
-  const handleBookChange = (book) => {
-    setIsLoadingChapters(true);
-    loadChapter(book, 1).finally(() => {
-      setIsLoadingChapters(false);
-    });
-  };
-
-  const handleChapterChange = (chapter) => {
-    loadChapter(currentBook, chapter);
-  };
-
+  // Commenting out this useMemo block as getPreviousChapter and other nav functions are not defined
+  /*
   const { beforeVerses, currentActiveVerse, afterVerses } = useMemo(() => {
     if (!activeVerse || !verses) {
       return {
@@ -377,101 +386,166 @@ const BibleReader = () => {
       };
     }
 
+    // const prevChapterDetails = getPreviousChapter(currentBook, currentChapter);
+    // const nextChapterDetails = getNextChapter(currentBook, currentChapter);
+    // const prevBookDetails = getPreviousBook(currentBook);
+    // const nextBookDetails =getNextBook(currentBook);
+
+
     return {
       beforeVerses: verses.slice(0, activeIndex),
       currentActiveVerse: verses[activeIndex],
-      afterVerses: verses.slice(activeIndex + 1)
+      afterVerses: verses.slice(activeIndex + 1),
+      // prevChapterDetails,
+      // nextChapterDetails,
+      // prevBookDetails,
+      // nextBookDetails
     };
-  }, [verses, activeVerse]);
+  }, [verses, activeVerse, currentBook, currentChapter]); // Removed getNextChapter etc. from deps for now
+  */
+
+  // Simplified navigation handlers (using setCurrentBook/setCurrentChapter from useBible)
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false); // Local loading state for nav
+
+  const handleBookChange = (newBook) => {
+    if (newBook === currentBook) return;
+    setIsLoadingChapters(true);
+    setCurrentBook(newBook); // This will trigger fetchVerses for chapter 1 via BibleContext's useEffect
+    setCurrentChapter(1);    // Explicitly set to chapter 1 for new book
+    // fetchVerses(newBook, 1).finally(() => setIsLoadingChapters(false)); // Direct call might be redundant
+    // Let BibleContext handle fetching, just manage UI loading state if needed.
+    // We might not even need setIsLoadingChapters if BibleContext.isLoading is sufficient.
+  };
+
+  const handleChapterChange = (newChapter) => {
+    if (newChapter === currentChapter) return;
+    // setIsLoadingChapters(true); // May not be needed if BibleContext.isLoading is used
+    setCurrentChapter(newChapter); // This will trigger fetchVerses via BibleContext's useEffect
+    // fetchVerses(currentBook, newChapter).finally(() => setIsLoadingChapters(false));
+  };
 
   useEffect(() => {
-    if (currentBook && (!chapterOptions || chapterOptions.length === 0)) {
-      loadChapter(currentBook, 1);
-    }
-  }, [currentBook, chapterOptions, loadChapter]);
+    // This effect tries to load chapter 1 if no verses are loaded for currentBook.
+    // It might conflict with URL param handling or initial load logic.
+    // Let's refine this or rely on the primary fetch in BibleContext.
+    // if (currentBook && (!verses || verses.length === 0) && !isLoadingVerses) { 
+    // console.log(`[BibleReader] Attempting to load chapter 1 for ${currentBook} as no verses are present.`);
+    // fetchVerses(currentBook, 1); 
+    // }
+  }, [currentBook, verses, isLoadingVerses, fetchVerses]);
 
-  const displayError = bibleError || studyNoteError;
 
-  if (displayError) {
+  const getErrorMessage = (error) => {
+    if (!error) return null;
+    if (typeof error === 'string') return error;
+    if (typeof error.message === 'string') return error.message;
+    // Attempt to stringify if it's an object with other details, or provide a generic message
+    // This handles the case where error might be { fetch: "message", ... } or other structures
+    if (typeof error.fetch === 'string') return error.fetch; 
+    if (typeof error.studyNote === 'string') return error.studyNote;
+    if (typeof error.quickNote === 'string') return error.quickNote;
+    // Added check for chapterNotes property, in case the whole error object from useNotes is passed
+    if (typeof error.chapterNotes === 'string') return error.chapterNotes; 
+    // Add more specific checks if other error structures are common from your hooks
+    console.warn("[BibleReader] Received error object that couldn't be parsed into a specific message. Structure:", error);
+    return 'An unexpected error occurred.'; // Fallback generic message
+  };
+
+  const finalDisplayError = getErrorMessage(versesError) || 
+                            getErrorMessage(chapterNotesError?.chapterNotes) || // Specifically target the sub-property
+                            getErrorMessage(highlightsError);
+
+  // Log to help debug the "Objects are not valid as a React child" error
+  if (currentBook !== null && typeof currentBook !== 'string') { // Check if not null AND not a string
+    console.error('[BibleReader] currentBook is not a string (and not null):', currentBook);
+  }
+  // currentChapter can be a number or string, so the existing check is mostly fine,
+  // but let's ensure it's not an object either.
+  if (currentChapter !== null && typeof currentChapter !== 'string' && typeof currentChapter !== 'number') {
+    console.error('[BibleReader] currentChapter is not a string or number (and not null):', currentChapter);
+  }
+  if (finalDisplayError && typeof finalDisplayError !== 'string') { // This should ideally not happen with getErrorMessage
+    console.error('[BibleReader] finalDisplayError is not a string (after getErrorMessage):', finalDisplayError);
+  }
+
+  if (finalDisplayError) { // Now finalDisplayError should be a string or null
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded">
-        Error: {displayError}
+      <div className="p-4 bg-red-100 text-red-700 rounded m-4">
+        <p className="font-bold">Error:</p>
+        <p>{finalDisplayError}</p>
       </div>
     );
   }
 
   return (
-    <div className={`relative h-full w-full transition-all duration-300 ${activeVerse || isChapterNotesOpen ? 'mr-96' : ''}`}>
+    <div className={`relative h-full w-full transition-all duration-300 ${activeVerse || isChapterNotesPanelOpen ? 'mr-96' : ''}`}>
       <div className="px-4 md:px-8 h-full">
         <div className="prose max-w-none">
-          {isBibleLoading ? (
-            <LoadingState />
-          ) : (
-            <>
-              <div className="flex justify-between items-center bg-white z-20 py-2 border-b mb-4 dark:bg-gray-800 dark:border-gray-700">
-                <h2 className="text-2xl font-bold m-0 pl-4 dark:text-gray-100">{currentBook} {currentChapter}</h2>
-                <button
-                  onClick={handleOpenChapterNotes}
-                  className="flex items-center gap-1 px-3 py-1.5 mr-4 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg dark:bg-blue-900/50 dark:hover:bg-blue-800/50 dark:text-blue-300"
-                  title="Chapter Notes"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span className="text-sm">Chapter Notes</span>
-                </button>
-              </div>
-              
-              <div>
-                {beforeVerses.map(verse => (
-                  <BibleVerseWithNotes 
-                    key={verse.id}
-                    verse={verse}
-                    onOpenSidePanel={handleOpenSidePanel}
-                    isActive={false}
-                  />
-                ))}
-              </div>
-
-              {currentActiveVerse && (
-                <div 
-                  id={`verse-${currentActiveVerse.id}`}
-                  className="sticky top-0 bg-white shadow-md z-10"
-                >
-                  <BibleVerseWithNotes 
-                    verse={currentActiveVerse}
-                    onOpenSidePanel={handleOpenSidePanel}
-                    isActive={true}
-                  />
+          <div className="flex justify-between items-center bg-white z-20 py-2 border-b mb-4 dark:bg-gray-800 dark:border-gray-700">
+            <h2 className="text-2xl font-bold m-0 pl-4 dark:text-gray-100">
+              {typeof currentBook === 'string' ? currentBook : '[Invalid Book]'} {typeof currentChapter === 'string' || typeof currentChapter === 'number' ? currentChapter : '[Invalid Chapter]'}
+            </h2>
+            <button
+              onClick={handleOpenChapterNotes}
+              className="flex items-center gap-1 px-3 py-1.5 mr-4 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg dark:bg-blue-900/50 dark:hover:bg-blue-800/50 dark:text-blue-300"
+              title="Chapter Notes"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span className="text-sm">Chapter Notes</span>
+            </button>
+          </div>
+          
+          <div className="space-y-1 pb-24 pt-4">
+            {isLoadingVerses ? (
+              <LoadingState />
+            ) : (
+              <>
+                <div>
+                  {verses && verses.length > 0 ? (
+                    verses.map((verse, index) => {
+                      const verseKey = `${verse.book}-${verse.chapter}-${verse.verse}`;
+                      // Ensure numeric comparison for chapter and verse from both sources
+                      const highlightsForVerse = highlights.filter(
+                        h => h.book === verse.book && 
+                             parseInt(String(h.chapter), 10) === parseInt(String(verse.chapter), 10) && 
+                             parseInt(String(h.verse), 10) === parseInt(String(verse.verse), 10)
+                      );
+                      return (
+                        <BibleVerseWithNotes
+                          key={verseKey}
+                          verse={verse}
+                          isActive={activeVerse && activeVerse.book === verse.book && activeVerse.chapter === verse.chapter && activeVerse.verse === verse.verse}
+                          onOpenSidePanel={handleOpenSidePanel}
+                          verseHighlights={highlightsForVerse} // Pass filtered highlights
+                          onHighlightCreated={updateHighlightsForVerse} // Pass updateHighlightsForVerse function
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="text-gray-500 dark:text-gray-400 text-center py-8">
+                      No verses available for {currentBook} {currentChapter}.
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <div>
-                {afterVerses.map(verse => (
-                  <BibleVerseWithNotes 
-                    key={verse.id}
-                    verse={verse}
-                    onOpenSidePanel={handleOpenSidePanel}
-                    isActive={false}
-                  />
-                ))}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {activeVerse && (
+      {sidePanelVerse && (
         <StudyNotesSidePanel 
-          verse={activeVerse}
+          verse={sidePanelVerse}
           onClose={handleCloseSidePanel}
-          chapterNotesCache={chapterNotesCache}
+          chapterNotesCache={chapterNotes}
           isLoadingChapterNotes={isLoadingChapterNotes} 
           isSavingNote={isSavingNote}
           saveStudyNote={saveStudyNote}
-          error={studyNoteError}
+          error={chapterNotesError}
         />
       )}
 
-      {isChapterNotesOpen && currentBook && currentChapter && (
+      {isChapterNotesPanelOpen && currentBook && currentChapter && (
         <ChapterNotesPanel
           book={currentBook}
           chapter={currentChapter}

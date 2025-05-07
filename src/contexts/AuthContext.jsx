@@ -14,14 +14,29 @@ console.log('Using API base URL:', API_BASE_URL); // Helpful for debugging
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored token on mount
-    const token = localStorage.getItem('token');
+    // Check for stored user on mount if token exists
+    const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+    
+    if (storedToken) {
+      setToken(storedToken);
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error("Failed to parse stored user:", e);
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          setToken(null);
+        }
+      }
+    } else {
+      setUser(null);
+      setToken(null);
     }
     setLoading(false);
   }, []);
@@ -49,6 +64,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
+      setToken(data.token);
       return data;
     } catch (error) {
       throw error;
@@ -84,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
+        setToken(data.token);
       }
 
       return data;
@@ -96,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setToken(null);
   };
 
   const updateUser = (updatedUser) => {
@@ -105,6 +123,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    token,
     login,
     register,
     logout,
