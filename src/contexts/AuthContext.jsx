@@ -10,8 +10,6 @@ const API_BASE_URL = `${
   window.location.origin
 }/api`;
 
-console.log('Using API base URL:', API_BASE_URL); // Helpful for debugging
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
