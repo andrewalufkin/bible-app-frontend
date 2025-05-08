@@ -1,7 +1,7 @@
 // src/components/navigation/Sidebar.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Book, Search, Users, BookOpen, Settings, Sun, Moon } from 'lucide-react';
+import { Book, Search, Users, BookOpen, Settings, Sun, Moon, Bookmark } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const NavItem = ({ icon: Icon, path, isActive, label, showLabels }) => {
@@ -45,6 +45,7 @@ const Sidebar = () => {
     { icon: Search, path: '/search', label: 'Search' },
     { icon: Users, path: '/friends', label: 'Friends' },
     { icon: Book, path: '/notes', label: 'Notes' },
+    { icon: Bookmark, path: '/bookmarks', label: 'Bookmarks' },
     { icon: Settings, path: '/settings', label: 'Settings' }
   ];
 

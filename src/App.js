@@ -12,6 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import InsightsPage from './pages/InsightsPage';
+import BookmarksPage from './pages/BookmarksPage';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
@@ -97,6 +98,14 @@ function AppContent() {
           <ProtectedRoute>
             <MainLayout>
               <FriendsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/bookmarks" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <BookmarksPage />
             </MainLayout>
           </ProtectedRoute>
         } />

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, X, Bookmark } from 'lucide-react';
 import { useNotes } from '../hooks/useNotes';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useBookmarks } from '../hooks/useBookmarks';
 
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`; // Added for API calls
 
@@ -66,6 +67,7 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive, verseHighlights
   const { fetchVerseNotes } = useNotes();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const [hoveredVerse, setHoveredVerse] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -274,10 +276,128 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive, verseHighlights
     window.getSelection().removeAllRanges();
   };
 
+  const handleDeleteHighlight = async () => {
+    console.log("[DEBUG] handleDeleteHighlight called. SelectionDetails:", selectionDetails);
+
+    if (!selectionDetails || !selectionDetails.range || !user) {
+      console.error("[DEBUG] Exiting: No selection details, range, or user for deletion.");
+      setPopover({ visible: false, top: 0, left: 0 });
+      setSelectionDetails(null);
+      if (window.getSelection()) {
+        window.getSelection().removeAllRanges();
+      }
+      return;
+    }
+
+    const { range, book, chapter, verseNum } = selectionDetails;
+    
+    let startOffset = -1;
+    let endOffset = -1;
+
+    const paragraphElement = verseTextRef.current?.querySelector('p.select-text');
+
+    if (paragraphElement && range) {
+        const rangeToStartOfSelection = document.createRange();
+        rangeToStartOfSelection.selectNodeContents(paragraphElement);
+        rangeToStartOfSelection.setEnd(range.startContainer, range.startOffset);
+        startOffset = rangeToStartOfSelection.toString().length;
+
+        const rangeToEndOfSelection = document.createRange();
+        rangeToEndOfSelection.selectNodeContents(paragraphElement);
+        rangeToEndOfSelection.setEnd(range.endContainer, range.endOffset);
+        endOffset = rangeToEndOfSelection.toString().length;
+    } else {
+        console.error("Could not determine paragraphElement or range for offset calculation during delete.", { paragraphElement, range });
+        setPopover({ visible: false, top: 0, left: 0 });
+        setSelectionDetails(null);
+        if (window.getSelection()) {
+          window.getSelection().removeAllRanges();
+        }
+        return;
+    }
+
+    if (startOffset === -1 || endOffset === -1 || endOffset <= startOffset) {
+        console.error("Invalid offsets calculated for highlight deletion.", { startOffset, endOffset });
+        setPopover({ visible: false, top: 0, left: 0 });
+        setSelectionDetails(null);
+        if (window.getSelection()) {
+          window.getSelection().removeAllRanges();
+        }
+        return;
+    }
+
+    const payload = {
+      book: book,
+      chapter: parseInt(chapter, 10),
+      verse: parseInt(verseNum, 10),
+      start_offset: startOffset,
+      end_offset: endOffset,
+    };
+
+    console.log("Deleting highlight with payload:", payload);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/highlights/range`, { // New endpoint
+        method: 'DELETE', // New method
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to delete highlight and parse error response' }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const updatedHighlightsForVerse = await response.json(); // Response is the updated array of highlights for the verse
+      console.log("Highlights updated after deletion for verse:", updatedHighlightsForVerse);
+      
+      if (onHighlightCreated) { // onHighlightCreated is updateHighlightsForVerse from the hook
+        const verseIdentifier = {
+          book: book,
+          chapter: parseInt(chapter, 10),
+          verse: parseInt(verseNum, 10)
+        };
+        onHighlightCreated(verseIdentifier, updatedHighlightsForVerse); 
+      }
+
+    } catch (error) {
+      console.error("Failed to delete highlight:", error);
+      alert(`Failed to delete highlight: ${error.message}`);
+    }
+
+    setPopover({ visible: false, top: 0, left: 0 });
+    setSelectionDetails(null);
+    if (window.getSelection()) {
+      window.getSelection().removeAllRanges();
+    }
+  };
+
   // Memoize the rendered verse text to avoid re-calculating on every render if verse text or highlights haven't changed.
   const renderedVerseText = useMemo(() => {
     return renderVerseTextWithHighlights(verse.text, verseHighlights, theme);
   }, [verse.text, verseHighlights, theme]);
+
+  const handleToggleBookmark = async () => {
+    if (!verse || !user) return; // Ensure verse and user are available
+
+    const verseIdentifier = {
+      book: verse.book,
+      chapter: parseInt(verse.chapter, 10),
+      verse: parseInt(verse.verse, 10),
+    };
+
+    if (isBookmarked(verseIdentifier)) {
+      await removeBookmark(verseIdentifier);
+    } else {
+      await addBookmark({ 
+        ...verseIdentifier, 
+        text: verse.text // Optionally include verse text or other details
+      });
+    }
+  };
+  
+  const currentVerseIdentifier = verse ? { book: verse.book, chapter: parseInt(verse.chapter, 10), verse: parseInt(verse.verse, 10) } : null;
+  const bookmarked = currentVerseIdentifier ? isBookmarked(currentVerseIdentifier) : false;
 
   return (
     <div className="flex w-full">
@@ -298,6 +418,13 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive, verseHighlights
                 </div>
                 
                 <div className={`flex gap-2 ${isMobile ? 'mt-3' : 'ml-4 min-w-[80px] justify-end'} ${!isMobile && !hoveredVerse && !popover.visible ? 'invisible' : ''}`}>
+                  <button 
+                    onClick={handleToggleBookmark}
+                    className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${bookmarked ? 'bg-blue-100 dark:bg-blue-700' : ''}`}
+                    title={bookmarked ? "Remove bookmark" : "Bookmark verse"}
+                  >
+                    <Bookmark className={`w-4 h-4 text-gray-600 dark:text-gray-300 ${bookmarked ? 'fill-current text-blue-500 dark:text-blue-400' : ''}`} />
+                  </button>
                   <button 
                     onClick={() => onOpenSidePanel(verse)}
                     className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${isActive ? 'bg-blue-200 dark:bg-blue-800' : ''}`}
@@ -333,6 +460,13 @@ const BibleVerseWithNotes = ({ verse, onOpenSidePanel, isActive, verseHighlights
                   title={`Highlight ${color}`}
                 />
               ))}
+              <button
+                onClick={handleDeleteHighlight}
+                className="w-6 h-6 rounded-full border dark:border-gray-400 dark:hover:border-gray-200 hover:opacity-80 flex items-center justify-center bg-gray-200 dark:bg-gray-500"
+                title="Remove highlight"
+              >
+                <X size={14} className="text-gray-700 dark:text-gray-200" />
+              </button>
             </div>
           )}
         </div>
