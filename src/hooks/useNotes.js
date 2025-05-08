@@ -1,8 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const useNotes = () => {
+  // Log hook initialization and unmount
+  useEffect(() => {
+    console.log('[useNotes] Hook instance initialized/mounted.');
+    const cacheId = Math.random().toString(36).substring(7);
+    console.log('[useNotes] Cache instance ID:', cacheId, 'Current chapterNotesCache keys:', Object.keys(chapterNotesCache));
+
+    return () => {
+      console.log('[useNotes] Hook instance unmounting/cleaning up. Cache ID:', cacheId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array means it runs once on mount and cleanup on unmount
+
   // Move these states to be specific to each operation
   const [loadingStates, setLoadingStates] = useState({
     fetch: false,
@@ -57,6 +69,7 @@ export const useNotes = () => {
   }, [getAuthHeaders]);
 
   const fetchChapterNotes = useCallback(async (book, chapter) => {
+    console.log(`[fetchChapterNotes] Called for ${book} ${chapter}`);
     setLoadingStates(prev => ({ ...prev, chapterNotes: true }));
     setErrors(prev => ({ ...prev, chapterNotes: null }));
     
@@ -73,27 +86,39 @@ export const useNotes = () => {
       }
 
       const notes = await response.json();
+      console.log(`[fetchChapterNotes] Received ${notes.length} notes from API for ${book} ${chapter}.`);
 
       // Process and update cache
       setChapterNotesCache(prevCache => {
+        console.log(`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. PrevCache keys:`, Object.keys(prevCache));
         const updatedCache = { ...prevCache };
         if (!updatedCache[book]) {
           updatedCache[book] = {};
         }
-        if (!updatedCache[book][chapter]) {
-          updatedCache[book][chapter] = {};
+        // Ensure chapter is treated as a number for keying, consistent with other parts
+        const chapterNum = Number(chapter);
+        if (!updatedCache[book][chapterNum]) {
+          updatedCache[book][chapterNum] = {};
         }
         
         // Group notes by verse
         const notesByVerse = {};
         notes.forEach(note => {
-          if (!notesByVerse[note.verse]) {
-            notesByVerse[note.verse] = [];
+          const verseNum = Number(note.verse); // Ensure verse key is a number
+          if (!notesByVerse[verseNum]) {
+            notesByVerse[verseNum] = [];
           }
-          notesByVerse[note.verse].push(note);
+          notesByVerse[verseNum].push(note);
         });
 
-        updatedCache[book][chapter] = notesByVerse;
+        updatedCache[book][chapterNum] = notesByVerse;
+        console.log(`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. UpdatedCache keys:`, Object.keys(updatedCache));
+        // Deep log the specific part of the cache being set for this chapter
+        if (updatedCache[book] && updatedCache[book][chapterNum]) {
+          console.log(`[fetchChapterNotes] Cache for ${book}/${chapterNum} now contains:`, JSON.parse(JSON.stringify(updatedCache[book][chapterNum])));
+        } else {
+          console.log(`[fetchChapterNotes] Cache for ${book}/${chapterNum} is empty or not set as expected.`);
+        }
         return updatedCache;
       });
       
@@ -161,6 +186,7 @@ export const useNotes = () => {
   }, [getAuthHeaders]);
 
   const saveStudyNote = useCallback(async (noteData) => {
+    console.log('[saveStudyNote] Called with noteData:', JSON.parse(JSON.stringify(noteData)));
     setLoadingStates(prev => ({ ...prev, studyNote: true }));
     setErrors(prev => ({ ...prev, studyNote: null }));
     
@@ -174,60 +200,94 @@ export const useNotes = () => {
         }
       );
 
+      console.log('[saveStudyNote] API Response Status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error JSON' }));
+        console.error('[saveStudyNote] API Error Data:', errorData);
         throw new Error(errorData.message || 'Failed to save study note');
       }
 
-      const savedNote = await response.json();
+      const responseData = await response.json(); 
+      console.log('[saveStudyNote] API Response Data (responseData):', JSON.parse(JSON.stringify(responseData)));
+      const actualSavedNote = responseData.note; 
+      console.log('[saveStudyNote] Extracted actualSavedNote:', JSON.parse(JSON.stringify(actualSavedNote)));
 
       // Update cache after successful save
       setChapterNotesCache(prevCache => {
-        const { book, chapter, verse } = noteData; // Use noteData for location
-        const newCache = JSON.parse(JSON.stringify(prevCache)); // Deep copy for safety
+        console.log('[saveStudyNote] setChapterNotesCache - prevCache:', JSON.parse(JSON.stringify(prevCache)));
+        const { book } = noteData; 
+        const chapterNum = Number(noteData.chapter); 
+        const verseNum = Number(noteData.verse);     
+        console.log(`[saveStudyNote] setChapterNotesCache - Keying with: book=${book}, chapter=${chapterNum}, verse=${verseNum}`);
+
+        const newCache = JSON.parse(JSON.stringify(prevCache)); 
 
         if (!newCache[book]) newCache[book] = {};
-        if (!newCache[book][chapter]) newCache[book][chapter] = {};
-        if (!newCache[book][chapter][verse]) newCache[book][chapter][verse] = [];
+        if (!newCache[book][chapterNum]) newCache[book][chapterNum] = {}; 
+        if (!newCache[book][chapterNum][verseNum]) newCache[book][chapterNum][verseNum] = []; 
 
-        const verseNotes = newCache[book][chapter][verse];
-        const noteIndex = verseNotes.findIndex(
-          n => n.user?.is_self && n.note_type === 'study' 
-        );
+        const verseNotes = newCache[book][chapterNum][verseNum];
+        console.log('[saveStudyNote] setChapterNotesCache - verseNotes before update:', JSON.parse(JSON.stringify(verseNotes)));
+        
+        let noteIndex = -1;
+        if (actualSavedNote && actualSavedNote.id) {
+          noteIndex = verseNotes.findIndex(n => n.id === actualSavedNote.id);
+        }
+        if (noteIndex === -1) { 
+          noteIndex = verseNotes.findIndex(
+            n => n.user?.is_self && n.note_type === 'study'
+          );
+        }
+        console.log('[saveStudyNote] setChapterNotesCache - Found noteIndex:', noteIndex);
 
         if (noteData.content.trim()) { 
-          // Add or Update note
           const noteToCache = {
-            ...savedNote, // Use data from response (like ID)
-            content: noteData.content, // Ensure content matches what was sent
-            book: String(book), // Ensure keys are strings if needed
-            chapter: Number(chapter),
-            verse: Number(verse),
+            ...actualSavedNote,
+            content: actualSavedNote.content || '', 
+            book: String(book), 
+            chapter: Number(chapterNum),
+            verse: Number(verseNum),
             note_type: 'study',
-             user: { // Add user info if missing from response (should be there ideally)
-              ...(savedNote.user || {}), // Keep existing user data from response
+            user: { 
               is_self: true,
-              username: savedNote.user?.username || 'You' // Placeholder if needed
             }
           };
+          console.log('[saveStudyNote] setChapterNotesCache - noteToCache:', JSON.parse(JSON.stringify(noteToCache)));
           
           if (noteIndex >= 0) {
             verseNotes[noteIndex] = noteToCache;
+            console.log('[saveStudyNote] setChapterNotesCache - Updated note in verseNotes.');
           } else {
             verseNotes.push(noteToCache);
+            console.log('[saveStudyNote] setChapterNotesCache - Pushed new note to verseNotes.');
           }
         } else { 
-          // Remove note if content is empty (delete)
-          if (noteIndex >= 0) {
-            verseNotes.splice(noteIndex, 1);
+          let indexToRemove = -1;
+          if (actualSavedNote && actualSavedNote.id) {
+            indexToRemove = verseNotes.findIndex(n => n.id === actualSavedNote.id);
+          }
+          if (indexToRemove === -1) { 
+            indexToRemove = verseNotes.findIndex(
+              n => n.user?.is_self && n.note_type === 'study'
+            );
+          }
+          console.log('[saveStudyNote] setChapterNotesCache - Found indexToRemove for delete:', indexToRemove);
+
+          if (indexToRemove >= 0) {
+            verseNotes.splice(indexToRemove, 1);
+            console.log('[saveStudyNote] setChapterNotesCache - Removed note from verseNotes.');
           }
         }
-        
+        console.log('[saveStudyNote] setChapterNotesCache - verseNotes after update:', JSON.parse(JSON.stringify(verseNotes)));
+        console.log('[saveStudyNote] setChapterNotesCache - newCache to be returned:', JSON.parse(JSON.stringify(newCache)));
         return newCache;
       });
 
-      return savedNote;
+      console.log('[saveStudyNote] Returning responseData:', JSON.parse(JSON.stringify(responseData)));
+      return responseData; 
     } catch (err) {
+      console.error('[saveStudyNote] Error caught:', err);
       setErrors(prev => ({ ...prev, studyNote: err.message }));
       throw err; // Re-throw error for caller handling
     } finally {

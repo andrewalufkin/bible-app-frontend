@@ -11,13 +11,13 @@ export const BibleProvider = ({ children }) => {
   const [verses, setVerses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [chapterCount, setChapterCount] = useState({}); // Store chapter counts for each book
+  // chapterCount was unused, removing for now to simplify context value
+  // const [chapterCount, setChapterCount] = useState({}); 
 
-  const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api/bible`;
-  console.log('Using API URL:', API_BASE_URL); // Debug log
+  const API_BASE_URL = useMemo(() => `${process.env.REACT_APP_BACKEND_URL}/api/bible`, []);
+  // console.log('Using API URL:', API_BASE_URL); // Debug log can be re-enabled if needed
 
-  // Helper function for fetch with timeout
-  const fetchWithTimeout = async (url, options = {}, timeout = 30000) => {
+  const fetchWithTimeout = useCallback(async (url, options = {}, timeout = 30000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     
@@ -42,111 +42,101 @@ export const BibleProvider = ({ children }) => {
       }
       throw error;
     }
-  };
+  }, []); // Empty dependency array as it doesn't depend on provider state/props
 
-  // Helper function to handle API responses
-  const handleApiResponse = async (response, errorMessage) => {
+  const handleApiResponse = useCallback(async (response, errorMessage) => {
     if (!response.ok) {
       throw new Error(`${errorMessage}: ${response.status} ${response.statusText}`);
     }
-    
-    // Get the raw text first
     const text = await response.text();
-    console.log('Raw response:', text); // Debug log
-    
+    // console.log('Raw response:', text); 
     try {
-      // Try to parse the JSON
       return JSON.parse(text);
     } catch (err) {
       console.error('JSON parse error:', err);
       throw new Error(`Failed to parse response: ${err.message}`);
     }
-  };
+  }, []); // Empty dependency array
 
-  // Fetch list of books
   useEffect(() => {
     const fetchBooks = async () => {
+      setIsLoading(true); // Set loading true at the start of fetchBooks
       try {
-        console.log('Fetching books from:', `${API_BASE_URL}/books`);
+        // console.log('Fetching books from:', `${API_BASE_URL}/books`);
         const response = await fetchWithTimeout(`${API_BASE_URL}/books`, {}, 60000);
         const data = await handleApiResponse(response, 'Failed to fetch books');
-        console.log('Parsed books data for /api/bible/books:', data);
+        // console.log('Parsed books data for /api/bible/books:', data);
         
-        // Ensure data is an array before proceeding
         if (Array.isArray(data)) {
-          // Assuming the API should return an array of strings (book names)
-          // or an array of objects where each object has a string property for the book name.
           const bookNames = data.map(item => {
             if (typeof item === 'string') return item;
             if (typeof item === 'object' && item !== null && typeof item.name === 'string') return item.name;
-            if (typeof item === 'object' && item !== null && typeof item.book_name === 'string') return item.book_name; // Common alternative
+            if (typeof item === 'object' && item !== null && typeof item.book_name === 'string') return item.book_name;
             console.warn('[BibleContext] Book item is not a string or a recognized object:', item);
-            return null; // Or handle as an error
-          }).filter(name => name !== null); // Filter out any nulls from unrecognized items
+            return null;
+          }).filter(name => name !== null);
 
           setBooks(bookNames);
           
           if (bookNames.length > 0) {
-            const firstBookName = bookNames[0]; // This is now guaranteed to be a string
-            console.log('[BibleContext] Setting current book to:', firstBookName);
-            setCurrentBook(firstBookName);
-            
-            const count = BOOK_CHAPTER_COUNTS[firstBookName] || 1;
-            setChapterCount(prev => ({
-              ...prev,
-              [firstBookName]: count
-            }));
-            
-            if (count > 0) {
-              setCurrentChapter(1);
-            }
+            const firstBookName = bookNames[0];
+            // console.log('[BibleContext] Setting current book to:', firstBookName);
+            // setCurrentBook will trigger its own fetchVerses via another useEffect
+            setCurrentBook(firstBookName); 
+            // Chapter count is derived, not set directly here anymore for chapterCount state
+            // if (BOOK_CHAPTER_COUNTS[firstBookName]) {
+            //   setCurrentChapter(1); // This is implicitly handled by setCurrentBook if it changes chapter
+            // }
           } else {
             console.warn('[BibleContext] No valid book names found after processing API response.');
-            setError('No valid books found.'); // Set an error if no books could be processed
+            setError('No valid books found.');
+            setBooks([]);
+            setCurrentBook(null); // Clear current book if no books are found
+            setCurrentChapter(1);
           }
         } else {
           console.error('[BibleContext] /api/bible/books did not return an array. Received:', data);
           setError('Invalid book data format from server.');
-          setBooks([]); // Clear books if data format is incorrect
+          setBooks([]);
+          setCurrentBook(null);
+          setCurrentChapter(1);
         }
-        
-        // setError(null); // This was here, but error might be set above.
-                       // Let specific errors persist if set.
       } catch (err) {
         const errorMsg = `Failed to load Bible books: ${err.message}`;
         console.error(errorMsg);
         setError(errorMsg);
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Set loading false at the end
       }
     };
     
     fetchBooks();
-  }, [API_BASE_URL]); // Added API_BASE_URL to dependencies as it's used inside
+  }, [API_BASE_URL, fetchWithTimeout, handleApiResponse]);
 
-  // Fetch verses when book or chapter changes
-  const fetchVerses = useCallback(async (book, chapter) => { // Made this a useCallback to be passed to BibleReader
-    if (!book || (typeof book !== 'string')) { // Ensure book is a string
+  const fetchVerses = useCallback(async (book, chapter) => {
+    if (!book || (typeof book !== 'string')) {
       console.warn('[BibleContext] fetchVerses called with invalid book:', book);
-      setVerses([]); // Clear verses if book is invalid
+      setVerses([]);
+      setIsLoading(false); // Ensure loading is set to false
       return;
     }
-    if (!chapter || (typeof chapter !== 'number' && typeof chapter !== 'string')) { // Ensure chapter is valid
+    if (!chapter || (typeof chapter !== 'number' && typeof chapter !== 'string')) {
         console.warn('[BibleContext] fetchVerses called with invalid chapter:', chapter);
         setVerses([]);
+        setIsLoading(false); // Ensure loading is set to false
         return;
     }
     
     setIsLoading(true);
+    setError(null); // Clear previous errors before fetching verses
     try {
       const endpoint = `${API_BASE_URL}/verses/${book}/${chapter}`;
-      console.log('Fetching verses from:', endpoint);
+      // console.log('Fetching verses from:', endpoint);
       
       const response = await fetchWithTimeout(endpoint, {}, 60000);
       const data = await handleApiResponse(response, 'Failed to fetch verses');
-      console.log('Parsed verses data:', data);
+      // console.log('Parsed verses data:', data);
       
-      // Ensure verse text is a string
       const processedVerses = Array.isArray(data) ? data.map(v => ({
         ...v,
         text: typeof v.text === 'string' ? v.text : '[Invalid Verse Text]'
@@ -155,53 +145,64 @@ export const BibleProvider = ({ children }) => {
         console.error('[BibleContext] Verses API did not return an array:', data);
         setError('Invalid verse data format from server.');
       }
-
       setVerses(processedVerses);
-      // setError(null); // Clear previous errors if successful
     } catch (err) {
       const errorMsg = `Failed to load verses for ${book} ${chapter}: ${err.message}`;
       console.error(errorMsg);
       setError(errorMsg);
-      setVerses([]); // Clear verses on error
+      setVerses([]);
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE_URL]); // Added API_BASE_URL to dependencies
+  }, [API_BASE_URL, fetchWithTimeout, handleApiResponse]); 
 
-  // Effect to call fetchVerses when currentBook or currentChapter changes
   useEffect(() => {
     if (currentBook && currentChapter) {
+        // console.log(`[BibleContext] useEffect detected change in currentBook (${currentBook}) or currentChapter (${currentChapter}), calling fetchVerses.`);
         fetchVerses(currentBook, currentChapter);
     }
   }, [currentBook, currentChapter, fetchVerses]);
 
-  // Function to get chapter count for a book
   const getChapterCount = useCallback((book) => {
-    if (!book) return 1;
+    if (!book || typeof book !== 'string') return 1; // Ensure book is a string
     return BOOK_CHAPTER_COUNTS[book] || 1;
   }, []);
 
-  // Generate chapter options for the current book
   const chapterOptions = useMemo(() => {
     if (!currentBook) return [];
     const count = getChapterCount(currentBook);
     return Array.from({ length: count }, (_, i) => i + 1);
   }, [currentBook, getChapterCount]);
 
-  const value = {
+  // Stable setters from useState don't need to be in useMemo deps for the value object itself
+  // if the functions themselves are passed directly. But if you are creating new functions
+  // (e.g. wrapped setters) then they would need useCallback and be in deps.
+  // Here, setCurrentBook and setCurrentChapter are directly from useState.
+  const value = useMemo(() => ({
     books,
     currentBook,
     currentChapter,
     verses,
     isLoading,
     error,
-    setCurrentBook, // Make sure this correctly sets a string
+    setCurrentBook,
     setCurrentChapter,
     chapterOptions,
-    fetchVerses, // Provide the wrapped fetchVerses
+    fetchVerses,
     getChapterCount
-    // loadChapter was removed as its logic is covered by setCurrentBook/setCurrentChapter and the useEffect for fetchVerses
-  };
+  }), [
+    books,
+    currentBook,
+    currentChapter,
+    verses,
+    isLoading,
+    error,
+    setCurrentBook, // technically stable, but good practice if value depends on it
+    setCurrentChapter, // technically stable
+    chapterOptions,
+    fetchVerses,
+    getChapterCount
+  ]);
 
   return (
     <BibleContext.Provider value={value}>

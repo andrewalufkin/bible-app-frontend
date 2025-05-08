@@ -73,6 +73,11 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
   const [isMobile, setIsMobile] = useState(false);
   const [isLoadingInitialVerseNote, setIsLoadingInitialVerseNote] = useState(true);
 
+  // Log studyNote whenever it changes
+  useEffect(() => {
+    console.log('[StudyNotesSidePanel] studyNote state changed to:', studyNote);
+  }, [studyNote]);
+
   // Check if viewport is mobile
   useEffect(() => {
     const checkIfMobile = () => {
@@ -87,6 +92,7 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
 
   // Update notes when verse changes (using cached data passed via props)
   useEffect(() => {
+    console.log('[StudyNotesSidePanel] Verse/Cache useEffect running. verse:', verse, 'chapterNotesCache:', chapterNotesCache ? Object.keys(chapterNotesCache) : null);
     if (!verse) return;
     
     setIsLoadingInitialVerseNote(true);
@@ -122,6 +128,8 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
   const handleSave = useCallback(async () => {
     if (!verse) return;
     
+    console.log('[StudyNotesSidePanel] handleSave called.');
+    console.log('[StudyNotesSidePanel] current editedNote to save:', editedNote);
     setInternalError(null);
     try {
       const savedNoteData = {
@@ -130,26 +138,39 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
         verse: String(verse.verse),
         content: editedNote.trim()
       };
+      console.log('[StudyNotesSidePanel] handleSave - saving data:', JSON.parse(JSON.stringify(savedNoteData)));
       
-      const savedNote = await saveStudyNote(savedNoteData);
+      const savedResponse = await saveStudyNote(savedNoteData);
+      console.log('[StudyNotesSidePanel] handleSave - response from saveStudyNote:', JSON.parse(JSON.stringify(savedResponse)));
       
-      const newContent = savedNote.content || '';
+      const newContent = savedResponse.note.content || '';
+      console.log('[StudyNotesSidePanel] handleSave - newContent from response:', newContent);
+      
+      console.log('[StudyNotesSidePanel] handleSave - studyNote BEFORE setStudyNote:', studyNote);
       setStudyNote(newContent);
+      // Logging studyNote immediately after setStudyNote will show the old value due to async nature.
+      // The useEffect above will log the new value after re-render.
+      console.log('[StudyNotesSidePanel] handleSave - called setStudyNote with:', newContent);
+
       setEditedNote(newContent);
       setIsEditing(false);
       
       setInternalError(null);
+      console.log('[StudyNotesSidePanel] handleSave completed successfully.');
 
     } catch (err) {
+      console.error('[StudyNotesSidePanel] handleSave - error:', err);
       setInternalError(err.message || 'Failed to save note');
     }
-  }, [verse, editedNote, saveStudyNote]);
+  }, [verse, editedNote, saveStudyNote, studyNote]);
 
   const handleCancel = useCallback(() => {
     setEditedNote(studyNote);
     setIsEditing(false);
     setInternalError(null);
   }, [studyNote]);
+
+  const errorToDisplay = internalError || (typeof error === 'string' ? error : null);
 
   // Memoize the friend notes list to prevent unnecessary rerenders
   const memoizedFriendNotesList = useMemo(() => (
@@ -226,9 +247,9 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
             )}
           </div>
           
-          {(internalError || error) && (
+          {errorToDisplay && (
             <div className="text-red-600 dark:text-red-400 text-sm mb-2">
-              {internalError || error}
+              {errorToDisplay}
             </div>
           )}
           
@@ -265,47 +286,46 @@ const StudyNotesSidePanel = ({ verse, onClose, chapterNotesCache, isLoadingChapt
 };
 
 const BibleReader = () => {
+  const { user } = useAuth();
+  const { currentBook, currentChapter, currentVerseNum, selectVerse, books, chapters, verses, isLoading: bibleIsLoading, error: bibleError, clearError: clearBibleError, fetchVerses } = useBible();
   const {
-    books,
-    currentBook,
-    currentChapter,
-    verses,
-    isLoading: isLoadingVerses,
-    error: versesError,
-    fetchVerses,
-    setCurrentBook,
-    setCurrentChapter,
-    getChapterCount,
-    getVerseCount,
-  } = useBible();
-
-  const { 
-    chapterNotes, 
-    isLoading: isLoadingChapterNotes,
-    error: chapterNotesError, 
-    fetchChapterNotes, 
+    fetchChapterNotes,
     saveStudyNote,
-    saveChapterNote,
-    isSavingNote 
+    chapterNotesCache,
+    loadingStates = {},
+    errors = {},
+    clearAllNotesError,
+    clearChapterNotesError,
+    clearStudyNoteError,
+    clearQuickNoteError,
+    saveQuickNote,
+    chapterHasOwnNote,
+    fetchChapterHasOwnNote,
+    isCheckingChapterNote,
   } = useNotes();
-  
-  const { 
-    highlights, 
+
+  console.log("[BibleReader] Value of 'errors' after destructuring from useNotes():", errors); // chaperone_added_log
+  console.log('[BibleReader] Value of chapterNotesCache from useNotes:', chapterNotesCache);
+
+  const [selectedVerse, setSelectedVerse] = useState(null);
+
+  const {
+    highlights,
     isLoading: isLoadingHighlights,
     error: highlightsError,
-    fetchHighlights, 
+    fetchHighlights,
     updateHighlightsForVerse,
-    clearHighlights 
+    clearHighlights
   } = useHighlights();
 
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { bookName: urlBookName, chapterNumber: urlChapterNumber } = useParams();
 
   const [activeVerse, setActiveVerse] = useState(null);
   const [sidePanelVerse, setSidePanelVerse] = useState(null);
   const [isChapterNotesPanelOpen, setIsChapterNotesPanelOpen] = useState(false);
-  
+  const [isLoadingChapters, setIsLoadingChapters] = useState(false); // Local loading state for nav
+
   // Effect to fetch verses when book or chapter changes
   useEffect(() => {
     if (currentBook && currentChapter) {
@@ -329,6 +349,67 @@ const BibleReader = () => {
       fetchChapterNotes(currentBook, currentChapter);
     }
   }, [currentBook, currentChapter, fetchChapterNotes]);
+
+  useEffect(() => {
+    // This effect tries to load chapter 1 if no verses are loaded for currentBook.
+    // It might conflict with URL param handling or initial load logic.
+    // Let's refine this or rely on the primary fetch in BibleContext.
+    // if (currentBook && (!verses || verses.length === 0) && !bibleIsLoading) {
+    // console.log(`[BibleReader] Attempting to load chapter 1 for ${currentBook} as no verses are present.`);
+    // fetchVerses(currentBook, 1);
+    // }
+  }, [currentBook, verses, bibleIsLoading, fetchVerses]);
+
+  useEffect(() => {
+    console.log('[BibleReader] Component MOUNTED');
+    const readerId = Math.random().toString(36).substring(7);
+    console.log('[BibleReader] Instance ID:', readerId);
+    return () => {
+      console.log('[BibleReader] Component WILL UNMOUNT. Instance ID:', readerId);
+    };
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
+
+  const getErrorMessage = (error) => {
+    if (!error) return null;
+    if (typeof error === 'string') return error;
+    if (typeof error.message === 'string') return error.message;
+    // Attempt to stringify if it's an object with other details, or provide a generic message
+    // This handles the case where error might be { fetch: "message", ... } or other structures
+    if (typeof error.fetch === 'string') return error.fetch;
+    if (typeof error.studyNote === 'string') return error.studyNote;
+    if (typeof error.quickNote === 'string') return error.quickNote;
+    // Added check for chapterNotes property, in case the whole error object from useNotes is passed
+    if (typeof error.chapterNotes === 'string') return error.chapterNotes;
+    // Add more specific checks if other error structures are common from your hooks
+    console.warn("[BibleReader] Received error object that couldn't be parsed into a specific message. Structure:", error);
+    return 'An unexpected error occurred.'; // Fallback generic message
+  };
+
+  const finalDisplayError = getErrorMessage(bibleError) ||
+                            getErrorMessage(errors.chapterNotes) ||
+                            getErrorMessage(highlightsError);
+
+  if (finalDisplayError) { // Now finalDisplayError should be a string or null
+    return (
+      <div className="p-4 bg-red-100 text-red-700 rounded m-4">
+        <p className="font-bold">Error:</p>
+        <p>{finalDisplayError}</p>
+      </div>
+    );
+  }
+
+  // Log to help debug the "Objects are not valid as a React child" error
+  if (currentBook !== null && typeof currentBook !== 'string') { // Check if not null AND not a string
+    console.error('[BibleReader] currentBook is not a string (and not null):', currentBook);
+  }
+  // currentChapter can be a number or string, so the existing check is mostly fine,
+  // but let's ensure it's not an object either.
+  if (currentChapter !== null && typeof currentChapter !== 'string' && typeof currentChapter !== 'number') {
+    console.error('[BibleReader] currentChapter is not a string or number (and not null):', currentChapter);
+  }
+  if (finalDisplayError && typeof finalDisplayError !== 'string') { // This should ideally not happen with getErrorMessage
+    console.error('[BibleReader] finalDisplayError is not a string (after getErrorMessage):', finalDisplayError);
+  }
 
   const handleOpenSidePanel = (verse) => {
     // setActiveVerse(verse); // This was causing an issue with the sticky verse logic
@@ -405,8 +486,6 @@ const BibleReader = () => {
   */
 
   // Simplified navigation handlers (using setCurrentBook/setCurrentChapter from useBible)
-  const [isLoadingChapters, setIsLoadingChapters] = useState(false); // Local loading state for nav
-
   const handleBookChange = (newBook) => {
     if (newBook === currentBook) return;
     setIsLoadingChapters(true);
@@ -424,58 +503,15 @@ const BibleReader = () => {
     // fetchVerses(currentBook, newChapter).finally(() => setIsLoadingChapters(false));
   };
 
-  useEffect(() => {
-    // This effect tries to load chapter 1 if no verses are loaded for currentBook.
-    // It might conflict with URL param handling or initial load logic.
-    // Let's refine this or rely on the primary fetch in BibleContext.
-    // if (currentBook && (!verses || verses.length === 0) && !isLoadingVerses) { 
-    // console.log(`[BibleReader] Attempting to load chapter 1 for ${currentBook} as no verses are present.`);
-    // fetchVerses(currentBook, 1); 
-    // }
-  }, [currentBook, verses, isLoadingVerses, fetchVerses]);
-
-
-  const getErrorMessage = (error) => {
-    if (!error) return null;
-    if (typeof error === 'string') return error;
-    if (typeof error.message === 'string') return error.message;
-    // Attempt to stringify if it's an object with other details, or provide a generic message
-    // This handles the case where error might be { fetch: "message", ... } or other structures
-    if (typeof error.fetch === 'string') return error.fetch; 
-    if (typeof error.studyNote === 'string') return error.studyNote;
-    if (typeof error.quickNote === 'string') return error.quickNote;
-    // Added check for chapterNotes property, in case the whole error object from useNotes is passed
-    if (typeof error.chapterNotes === 'string') return error.chapterNotes; 
-    // Add more specific checks if other error structures are common from your hooks
-    console.warn("[BibleReader] Received error object that couldn't be parsed into a specific message. Structure:", error);
-    return 'An unexpected error occurred.'; // Fallback generic message
-  };
-
-  const finalDisplayError = getErrorMessage(versesError) || 
-                            getErrorMessage(chapterNotesError?.chapterNotes) || // Specifically target the sub-property
-                            getErrorMessage(highlightsError);
-
-  // Log to help debug the "Objects are not valid as a React child" error
-  if (currentBook !== null && typeof currentBook !== 'string') { // Check if not null AND not a string
-    console.error('[BibleReader] currentBook is not a string (and not null):', currentBook);
-  }
-  // currentChapter can be a number or string, so the existing check is mostly fine,
-  // but let's ensure it's not an object either.
-  if (currentChapter !== null && typeof currentChapter !== 'string' && typeof currentChapter !== 'number') {
-    console.error('[BibleReader] currentChapter is not a string or number (and not null):', currentChapter);
-  }
-  if (finalDisplayError && typeof finalDisplayError !== 'string') { // This should ideally not happen with getErrorMessage
-    console.error('[BibleReader] finalDisplayError is not a string (after getErrorMessage):', finalDisplayError);
-  }
-
-  if (finalDisplayError) { // Now finalDisplayError should be a string or null
-    return (
-      <div className="p-4 bg-red-100 text-red-700 rounded m-4">
-        <p className="font-bold">Error:</p>
-        <p>{finalDisplayError}</p>
-      </div>
-    );
-  }
+  // useEffect(() => { // MOVED TO TOP
+  //   // This effect tries to load chapter 1 if no verses are loaded for currentBook.
+  //   // It might conflict with URL param handling or initial load logic.
+  //   // Let's refine this or rely on the primary fetch in BibleContext.
+  //   // if (currentBook && (!verses || verses.length === 0) && !bibleIsLoading) {
+  //   // console.log(`[BibleReader] Attempting to load chapter 1 for ${currentBook} as no verses are present.`);
+  //   // fetchVerses(currentBook, 1);
+  //   // }
+  // }, [currentBook, verses, bibleIsLoading, fetchVerses]);
 
   return (
     <div className={`relative h-full w-full transition-all duration-300 ${activeVerse || isChapterNotesPanelOpen ? 'mr-96' : ''}`}>
@@ -496,7 +532,7 @@ const BibleReader = () => {
           </div>
           
           <div className="space-y-1 pb-24 pt-4">
-            {isLoadingVerses ? (
+            {bibleIsLoading ? (
               <LoadingState />
             ) : (
               <>
@@ -537,11 +573,11 @@ const BibleReader = () => {
         <StudyNotesSidePanel 
           verse={sidePanelVerse}
           onClose={handleCloseSidePanel}
-          chapterNotesCache={chapterNotes}
-          isLoadingChapterNotes={isLoadingChapterNotes} 
-          isSavingNote={isSavingNote}
+          chapterNotesCache={chapterNotesCache}
+          isLoadingChapterNotes={loadingStates.chapterNotes}
+          isSavingNote={loadingStates.studyNote}
           saveStudyNote={saveStudyNote}
-          error={chapterNotesError}
+          error={errors.chapterNotes}
         />
       )}
 

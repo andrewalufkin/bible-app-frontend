@@ -87,29 +87,29 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
   };
 
   return (
-    <div className={`${isMobile ? 'w-full' : 'w-96'} border-l bg-gray-50 p-4 h-screen fixed right-0 top-0 overflow-y-auto z-50`}>
+    <div className={`${isMobile ? 'w-full' : 'w-96'} border-l bg-gray-50 dark:bg-gray-800 dark:border-gray-700 p-4 h-screen fixed right-0 top-0 overflow-y-auto z-50`}>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-medium">Chapter Notes</h3>
+        <h3 className="font-medium dark:text-gray-100">Chapter Notes</h3>
         <button 
           onClick={onClose}
-          className="p-1 rounded hover:bg-gray-200"
+          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-300"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="text-sm text-gray-600 mb-4">
+      <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
         {book} {chapter}
       </div>
 
       <div className="space-y-4">
         <div>
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-medium text-gray-600">Your Chapter Notes</h4>
+            <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Chapter Notes</h4>
             {!isEditing && (
               <button
                 onClick={handleEdit}
-                className="p-1 rounded hover:bg-gray-200 text-gray-600"
+                className="p-1 rounded hover:bg-gray-200 text-gray-600 dark:hover:bg-gray-700 dark:text-gray-300"
                 title="Edit note"
                 disabled={isLoadingNote}
               >
@@ -120,15 +120,15 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="p-1 rounded hover:bg-green-100 text-green-600"
+                  className="p-1 rounded hover:bg-green-100 text-green-600 dark:hover:bg-green-900 dark:text-green-400"
                   title="Save changes"
                   disabled={isSavingNote}
                 >
-                  {isSavingNote ? <div className="w-4 h-4 border-t-2 border-green-600 rounded-full animate-spin"></div> : <Check className="w-4 h-4" />}
+                  {isSavingNote ? <div className="w-4 h-4 border-t-2 border-green-600 dark:border-green-400 rounded-full animate-spin"></div> : <Check className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="p-1 rounded hover:bg-red-100 text-red-600"
+                  className="p-1 rounded hover:bg-red-100 text-red-600 dark:hover:bg-red-900 dark:text-red-400"
                   title="Cancel changes"
                   disabled={isSavingNote}
                 >
@@ -145,33 +145,33 @@ const ChapterNotesPanel = ({ book, chapter, onClose }) => {
           )}
           
           {isLoadingNote ? (
-            <div className="w-full p-3 bg-white border rounded min-h-[150px] animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-full mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            <div className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded min-h-[150px] animate-pulse">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-3"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
             </div>
           ) : isEditing ? (
             <AutoExpandingTextarea
               value={editedNote}
               onChange={(e) => setEditedNote(e.target.value)}
               placeholder="Add your chapter notes here..."
-              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:focus:ring-blue-500"
               disabled={isSavingNote}
               minRows={6}
             />
           ) : (
-            <div className="w-full p-3 bg-white border rounded min-h-[150px]">
+            <div className="w-full p-3 bg-white dark:bg-gray-700 border dark:border-gray-600 rounded min-h-[150px]">
               {chapterNote ? (
-                <p className="text-gray-600 whitespace-pre-wrap">{chapterNote}</p>
+                <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{chapterNote}</p>
               ) : (
-                <p className="text-gray-400 italic">No chapter notes yet. Click the edit button to add one.</p>
+                <p className="text-gray-400 dark:text-gray-500 italic">No chapter notes yet. Click the edit button to add one.</p>
               )}
             </div>
           )}
         </div>
 
-        <div className="border-t pt-4">
-          <p className="text-sm text-gray-600 mb-2">
+        <div className="border-t dark:border-gray-700 pt-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             Chapter notes help you summarize the main themes and messages of the entire chapter.
             They are also used to enhance AI insights.
           </p>

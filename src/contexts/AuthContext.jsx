@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 const AuthContext = createContext();
 
@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('user');
           localStorage.removeItem('token');
           setToken(null);
+          setUser(null); // Ensure user is also nulled out
         }
       }
     } else {
@@ -39,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
@@ -67,9 +68,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       throw error;
     }
-  };
+  }, []);
 
-  const register = async (email, password, username) => {
+  const register = useCallback(async (email, password, username) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
@@ -105,21 +106,21 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       throw error;
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
     setToken(null);
-  };
+  }, []);
 
-  const updateUser = (updatedUser) => {
+  const updateUser = useCallback((updatedUser) => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setUser(updatedUser);
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     token,
     login,
@@ -128,7 +129,7 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     isAuthenticated: !!user,
     isPremium: user?.is_premium || false,
-  };
+  }), [user, token, login, register, logout, updateUser]);
 
   if (loading) {
     return <div>Loading...</div>;
