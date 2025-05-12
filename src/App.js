@@ -54,18 +54,22 @@ function AppContent() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         
-        {/* Public Route */}
+        {/* Public Route - Now Protected */}
         <Route path="/" element={
-          <MainLayout>
-            <BibleReader />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <BibleReader />
+            </MainLayout>
+          </ProtectedRoute>
         } />
 
-        {/* Bible Routes */}
+        {/* Bible Routes - Now Protected */}
         <Route path="/bible/:book/:chapter" element={
-          <MainLayout>
-            <BibleReader />
-          </MainLayout>
+          <ProtectedRoute>
+            <MainLayout>
+              <BibleReader />
+            </MainLayout>
+          </ProtectedRoute>
         } />
 
         {/* Insights Route */}

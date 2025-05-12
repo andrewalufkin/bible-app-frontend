@@ -1,16 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const useNotes = () => {
+  const { token, logout } = useAuth();
+
   // Log hook initialization and unmount
   useEffect(() => {
-    console.log('[useNotes] Hook instance initialized/mounted.');
-    const cacheId = Math.random().toString(36).substring(7);
-    console.log('[useNotes] Cache instance ID:', cacheId, 'Current chapterNotesCache keys:', Object.keys(chapterNotesCache));
+    // console.log('[useNotes] Hook instance initialized/mounted.');
+    // const cacheId = Math.random().toString(36).substring(7);
+    // console.log('[useNotes] Cache instance ID:', cacheId, 'Current chapterNotesCache keys:', Object.keys(chapterNotesCache));
 
     return () => {
-      console.log('[useNotes] Hook instance unmounting/cleaning up. Cache ID:', cacheId);
+      // console.log('[useNotes] Hook instance unmounting/cleaning up. Cache ID:', cacheId);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means it runs once on mount and cleanup on unmount
@@ -38,9 +41,21 @@ export const useNotes = () => {
 
   // Memoize headers function
   const getAuthHeaders = useCallback(() => ({
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
-  }), []);
+  }), [token]);
+
+  const handleApiError = useCallback((response, operationName) => {
+    if (response.status === 401) {
+      logout();
+      throw new Error(`Session expired during ${operationName}. Please log in again.`);
+    }
+    // Try to parse error, then throw
+    return response.json().catch(() => ({ message: `Failed to ${operationName} and parse error response` }))
+      .then(errorData => {
+        throw new Error(errorData.message || `HTTP error! status: ${response.status} during ${operationName}.`);
+      });
+  }, [logout]);
 
   const fetchVerseNotes = useCallback(async (book, chapter, verse) => {
     setLoadingStates(prev => ({ ...prev, fetch: true }));
@@ -55,7 +70,7 @@ export const useNotes = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch notes');
+        return handleApiError(response, 'fetching verse notes');
       }
 
       const notes = await response.json();
@@ -66,10 +81,10 @@ export const useNotes = () => {
     } finally {
       setLoadingStates(prev => ({ ...prev, fetch: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, handleApiError]);
 
   const fetchChapterNotes = useCallback(async (book, chapter) => {
-    console.log(`[fetchChapterNotes] Called for ${book} ${chapter}`);
+    // console.log(\`[fetchChapterNotes] Called for ${book} ${chapter}\`);
     setLoadingStates(prev => ({ ...prev, chapterNotes: true }));
     setErrors(prev => ({ ...prev, chapterNotes: null }));
     
@@ -82,15 +97,15 @@ export const useNotes = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch chapter notes');
+        return handleApiError(response, 'fetching chapter notes');
       }
 
       const notes = await response.json();
-      console.log(`[fetchChapterNotes] Received ${notes.length} notes from API for ${book} ${chapter}.`);
+      // console.log(\`[fetchChapterNotes] Received ${notes.length} notes from API for ${book} ${chapter}.\`);
 
       // Process and update cache
       setChapterNotesCache(prevCache => {
-        console.log(`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. PrevCache keys:`, Object.keys(prevCache));
+        // console.log(\`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. PrevCache keys:\`, Object.keys(prevCache));
         const updatedCache = { ...prevCache };
         if (!updatedCache[book]) {
           updatedCache[book] = {};
@@ -112,13 +127,13 @@ export const useNotes = () => {
         });
 
         updatedCache[book][chapterNum] = notesByVerse;
-        console.log(`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. UpdatedCache keys:`, Object.keys(updatedCache));
+        // console.log(\`[fetchChapterNotes] setChapterNotesCache for ${book} ${chapter}. UpdatedCache keys:\`, Object.keys(updatedCache));
         // Deep log the specific part of the cache being set for this chapter
-        if (updatedCache[book] && updatedCache[book][chapterNum]) {
-          console.log(`[fetchChapterNotes] Cache for ${book}/${chapterNum} now contains:`, JSON.parse(JSON.stringify(updatedCache[book][chapterNum])));
-        } else {
-          console.log(`[fetchChapterNotes] Cache for ${book}/${chapterNum} is empty or not set as expected.`);
-        }
+        // if (updatedCache[book] && updatedCache[book][chapterNum]) {
+          // console.log(\`[fetchChapterNotes] Cache for ${book}/${chapterNum} now contains:\`, JSON.parse(JSON.stringify(updatedCache[book][chapterNum])));
+        // } else {
+          // console.log(\`[fetchChapterNotes] Cache for ${book}/${chapterNum} is empty or not set as expected.\`);
+        // }
         return updatedCache;
       });
       
@@ -130,7 +145,7 @@ export const useNotes = () => {
     } finally {
       setLoadingStates(prev => ({ ...prev, chapterNotes: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, handleApiError]);
 
   const fetchSingleChapterNote = useCallback(async (book, chapter) => {
     setLoadingStates(prev => ({ ...prev, singleChapterNote: true }));
@@ -149,8 +164,7 @@ export const useNotes = () => {
       } else if (response.status === 404) {
         return { content: '' };
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to load chapter note');
+        return handleApiError(response, 'fetching single chapter note');
       }
     } catch (err) {
       setErrors(prev => ({ ...prev, singleChapterNote: err.message }));
@@ -158,7 +172,7 @@ export const useNotes = () => {
     } finally {
       setLoadingStates(prev => ({ ...prev, singleChapterNote: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, handleApiError]);
 
   const fetchAllNotes = useCallback(async (page = 1, limit = 10) => {
     setLoadingStates(prev => ({ ...prev, allNotes: true }));
@@ -173,7 +187,7 @@ export const useNotes = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch notes');
+        return handleApiError(response, 'fetching all notes');
       }
 
       return await response.json();
@@ -183,10 +197,10 @@ export const useNotes = () => {
     } finally {
       setLoadingStates(prev => ({ ...prev, allNotes: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, handleApiError]);
 
   const saveStudyNote = useCallback(async (noteData) => {
-    console.log('[saveStudyNote] Called with noteData:', JSON.parse(JSON.stringify(noteData)));
+    // console.log('[saveStudyNote] Called with noteData:', JSON.parse(JSON.stringify(noteData)));
     setLoadingStates(prev => ({ ...prev, studyNote: true }));
     setErrors(prev => ({ ...prev, studyNote: null }));
     
@@ -200,26 +214,30 @@ export const useNotes = () => {
         }
       );
 
-      console.log('[saveStudyNote] API Response Status:', response.status);
+      // console.log('[saveStudyNote] API Response Status:', response.status);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          logout();
+          throw new Error('Session expired. Please log in again.');
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to parse error JSON' }));
-        console.error('[saveStudyNote] API Error Data:', errorData);
+        // console.error('[saveStudyNote] API Error Data:', errorData);
         throw new Error(errorData.message || 'Failed to save study note');
       }
 
       const responseData = await response.json(); 
-      console.log('[saveStudyNote] API Response Data (responseData):', JSON.parse(JSON.stringify(responseData)));
+      // console.log('[saveStudyNote] API Response Data (responseData):', JSON.parse(JSON.stringify(responseData)));
       const actualSavedNote = responseData.note; 
-      console.log('[saveStudyNote] Extracted actualSavedNote:', JSON.parse(JSON.stringify(actualSavedNote)));
+      // console.log('[saveStudyNote] Extracted actualSavedNote:', JSON.parse(JSON.stringify(actualSavedNote)));
 
       // Update cache after successful save
       setChapterNotesCache(prevCache => {
-        console.log('[saveStudyNote] setChapterNotesCache - prevCache:', JSON.parse(JSON.stringify(prevCache)));
+        // console.log('[saveStudyNote] setChapterNotesCache - prevCache:', JSON.parse(JSON.stringify(prevCache)));
         const { book } = noteData; 
         const chapterNum = Number(noteData.chapter); 
         const verseNum = Number(noteData.verse);     
-        console.log(`[saveStudyNote] setChapterNotesCache - Keying with: book=${book}, chapter=${chapterNum}, verse=${verseNum}`);
+        // console.log(\`[saveStudyNote] setChapterNotesCache - Keying with: book=${book}, chapter=${chapterNum}, verse=${verseNum}\`);
 
         const newCache = JSON.parse(JSON.stringify(prevCache)); 
 
@@ -228,7 +246,7 @@ export const useNotes = () => {
         if (!newCache[book][chapterNum][verseNum]) newCache[book][chapterNum][verseNum] = []; 
 
         const verseNotes = newCache[book][chapterNum][verseNum];
-        console.log('[saveStudyNote] setChapterNotesCache - verseNotes before update:', JSON.parse(JSON.stringify(verseNotes)));
+        // console.log('[saveStudyNote] setChapterNotesCache - verseNotes before update:', JSON.parse(JSON.stringify(verseNotes)));
         
         let noteIndex = -1;
         if (actualSavedNote && actualSavedNote.id) {
@@ -239,7 +257,7 @@ export const useNotes = () => {
             n => n.user?.is_self && n.note_type === 'study'
           );
         }
-        console.log('[saveStudyNote] setChapterNotesCache - Found noteIndex:', noteIndex);
+        // console.log('[saveStudyNote] setChapterNotesCache - Found noteIndex:', noteIndex);
 
         if (noteData.content.trim()) { 
           const noteToCache = {
@@ -253,14 +271,14 @@ export const useNotes = () => {
               is_self: true,
             }
           };
-          console.log('[saveStudyNote] setChapterNotesCache - noteToCache:', JSON.parse(JSON.stringify(noteToCache)));
+          // console.log('[saveStudyNote] setChapterNotesCache - noteToCache:', JSON.parse(JSON.stringify(noteToCache)));
           
           if (noteIndex >= 0) {
             verseNotes[noteIndex] = noteToCache;
-            console.log('[saveStudyNote] setChapterNotesCache - Updated note in verseNotes.');
+            // console.log('[saveStudyNote] setChapterNotesCache - Updated note in verseNotes.');
           } else {
             verseNotes.push(noteToCache);
-            console.log('[saveStudyNote] setChapterNotesCache - Pushed new note to verseNotes.');
+            // console.log('[saveStudyNote] setChapterNotesCache - Pushed new note to verseNotes.');
           }
         } else { 
           let indexToRemove = -1;
@@ -272,28 +290,28 @@ export const useNotes = () => {
               n => n.user?.is_self && n.note_type === 'study'
             );
           }
-          console.log('[saveStudyNote] setChapterNotesCache - Found indexToRemove for delete:', indexToRemove);
+          // console.log('[saveStudyNote] setChapterNotesCache - Found indexToRemove for delete:', indexToRemove);
 
           if (indexToRemove >= 0) {
             verseNotes.splice(indexToRemove, 1);
-            console.log('[saveStudyNote] setChapterNotesCache - Removed note from verseNotes.');
+            // console.log('[saveStudyNote] setChapterNotesCache - Removed note from verseNotes.');
           }
         }
-        console.log('[saveStudyNote] setChapterNotesCache - verseNotes after update:', JSON.parse(JSON.stringify(verseNotes)));
-        console.log('[saveStudyNote] setChapterNotesCache - newCache to be returned:', JSON.parse(JSON.stringify(newCache)));
+        // console.log('[saveStudyNote] setChapterNotesCache - verseNotes after update:', JSON.parse(JSON.stringify(verseNotes)));
+        // console.log('[saveStudyNote] setChapterNotesCache - newCache to be returned:', JSON.parse(JSON.stringify(newCache)));
         return newCache;
       });
 
-      console.log('[saveStudyNote] Returning responseData:', JSON.parse(JSON.stringify(responseData)));
+      // console.log('[saveStudyNote] Returning responseData:', JSON.parse(JSON.stringify(responseData)));
       return responseData; 
     } catch (err) {
-      console.error('[saveStudyNote] Error caught:', err);
+      // console.error('[saveStudyNote] Error caught:', err);
       setErrors(prev => ({ ...prev, studyNote: err.message }));
       throw err; // Re-throw error for caller handling
     } finally {
       setLoadingStates(prev => ({ ...prev, studyNote: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, logout]);
 
   const saveQuickNote = useCallback(async (noteData) => {
     setLoadingStates(prev => ({ ...prev, quickNote: true }));
@@ -310,18 +328,18 @@ export const useNotes = () => {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save quick note');
+        return handleApiError(response, 'saving quick note');
       }
 
-      return await response.json();
+      const savedNote = await response.json();
+      return savedNote;
     } catch (err) {
       setErrors(prev => ({ ...prev, quickNote: err.message }));
       throw err;
     } finally {
       setLoadingStates(prev => ({ ...prev, quickNote: false }));
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, handleApiError, chapterNotesCache]);
 
   const saveChapterNote = useCallback(async (noteData) => {
     setLoadingStates(prev => ({ ...prev, chapterNotes: true }));

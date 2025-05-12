@@ -2,6 +2,23 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { BOOK_CHAPTER_COUNTS } from '../constants/bibleData';
 
+const BIBLICAL_BOOKS = [
+  'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
+  'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel', '1 Kings',
+  '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra', 'Nehemiah',
+  'Esther', 'Job', 'Psalms', 'Proverbs', 'Ecclesiastes',
+  'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
+  'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos', 'Obadiah',
+  'Jonah', 'Micah', 'Nahum', 'Habakkuk', 'Zephaniah', 'Haggai',
+  'Zechariah', 'Malachi',
+  'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans',
+  '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians',
+  'Philippians', 'Colossians', '1 Thessalonians', '2 Thessalonians',
+  '1 Timothy', '2 Timothy', 'Titus', 'Philemon', 'Hebrews',
+  'James', '1 Peter', '2 Peter', '1 John', '2 John', '3 John',
+  'Jude', 'Revelation'
+];
+
 const BibleContext = createContext();
 
 export const BibleProvider = ({ children }) => {
@@ -62,43 +79,19 @@ export const BibleProvider = ({ children }) => {
     const fetchBooks = async () => {
       setIsLoading(true); // Set loading true at the start of fetchBooks
       try {
-        // console.log('Fetching books from:', `${API_BASE_URL}/books`);
-        const response = await fetchWithTimeout(`${API_BASE_URL}/books`, {}, 60000);
-        const data = await handleApiResponse(response, 'Failed to fetch books');
-        // console.log('Parsed books data for /api/bible/books:', data);
+        // No API call needed, use the constant
+        const bookNames = BIBLICAL_BOOKS;
         
-        if (Array.isArray(data)) {
-          const bookNames = data.map(item => {
-            if (typeof item === 'string') return item;
-            if (typeof item === 'object' && item !== null && typeof item.name === 'string') return item.name;
-            if (typeof item === 'object' && item !== null && typeof item.book_name === 'string') return item.book_name;
-            console.warn('[BibleContext] Book item is not a string or a recognized object:', item);
-            return null;
-          }).filter(name => name !== null);
-
-          setBooks(bookNames);
-          
-          if (bookNames.length > 0) {
-            const firstBookName = bookNames[0];
-            // console.log('[BibleContext] Setting current book to:', firstBookName);
-            // setCurrentBook will trigger its own fetchVerses via another useEffect
-            setCurrentBook(firstBookName); 
-            // Chapter count is derived, not set directly here anymore for chapterCount state
-            // if (BOOK_CHAPTER_COUNTS[firstBookName]) {
-            //   setCurrentChapter(1); // This is implicitly handled by setCurrentBook if it changes chapter
-            // }
-          } else {
-            console.warn('[BibleContext] No valid book names found after processing API response.');
-            setError('No valid books found.');
-            setBooks([]);
-            setCurrentBook(null); // Clear current book if no books are found
-            setCurrentChapter(1);
-          }
+        setBooks(bookNames);
+        
+        if (bookNames.length > 0) {
+          const firstBookName = bookNames[0];
+          setCurrentBook(firstBookName); 
         } else {
-          console.error('[BibleContext] /api/bible/books did not return an array. Received:', data);
-          setError('Invalid book data format from server.');
+          console.warn('[BibleContext] No valid book names found in BIBLICAL_BOOKS constant.');
+          setError('No valid books found.');
           setBooks([]);
-          setCurrentBook(null);
+          setCurrentBook(null); 
           setCurrentChapter(1);
         }
       } catch (err) {
@@ -111,7 +104,7 @@ export const BibleProvider = ({ children }) => {
     };
     
     fetchBooks();
-  }, [API_BASE_URL, fetchWithTimeout, handleApiResponse]);
+  }, []); // Removed API_BASE_URL, fetchWithTimeout, handleApiResponse from dependencies
 
   const fetchVerses = useCallback(async (book, chapter) => {
     if (!book || (typeof book !== 'string')) {

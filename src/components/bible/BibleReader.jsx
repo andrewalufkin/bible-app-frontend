@@ -304,8 +304,8 @@ const BibleReader = () => {
     isCheckingChapterNote,
   } = useNotes();
 
-  console.log("[BibleReader] Value of 'errors' after destructuring from useNotes():", errors); // chaperone_added_log
-  console.log('[BibleReader] Value of chapterNotesCache from useNotes:', chapterNotesCache);
+  // console.log("[BibleReader] Value of 'errors' after destructuring from useNotes():", errors); // chaperone_added_log
+  // console.log('[BibleReader] Value of chapterNotesCache from useNotes:', chapterNotesCache);
 
   const [selectedVerse, setSelectedVerse] = useState(null);
 
@@ -329,7 +329,7 @@ const BibleReader = () => {
   // Effect to fetch verses when book or chapter changes
   useEffect(() => {
     if (currentBook && currentChapter) {
-      console.log(`[BibleReader] Fetching verses for ${currentBook} ${currentChapter}`);
+      // console.log(\`[BibleReader] Fetching verses for ${currentBook} ${currentChapter}\`);
       fetchVerses(currentBook, currentChapter);
     }
   }, [currentBook, currentChapter, fetchVerses]);
@@ -337,7 +337,7 @@ const BibleReader = () => {
   // Effect to fetch highlights when book or chapter changes
   useEffect(() => {
     if (currentBook && currentChapter) {
-      console.log(`[BibleReader] Clearing and fetching highlights for ${currentBook} ${currentChapter}`);
+      // console.log(\`[BibleReader] Clearing and fetching highlights for ${currentBook} ${currentChapter}\`);
       clearHighlights(); // Clear previous highlights
       fetchHighlights(currentBook, currentChapter);
     }
@@ -361,11 +361,11 @@ const BibleReader = () => {
   }, [currentBook, verses, bibleIsLoading, fetchVerses]);
 
   useEffect(() => {
-    console.log('[BibleReader] Component MOUNTED');
-    const readerId = Math.random().toString(36).substring(7);
-    console.log('[BibleReader] Instance ID:', readerId);
+    // console.log('[BibleReader] Component MOUNTED');
+    // const readerId = Math.random().toString(36).substring(7);
+    // console.log('[BibleReader] Instance ID:', readerId);
     return () => {
-      console.log('[BibleReader] Component WILL UNMOUNT. Instance ID:', readerId);
+      // console.log('[BibleReader] Component WILL UNMOUNT. Instance ID:', readerId);
     };
   }, []); // Empty dependency array ensures this runs only on mount and unmount
 
@@ -381,7 +381,7 @@ const BibleReader = () => {
     // Added check for chapterNotes property, in case the whole error object from useNotes is passed
     if (typeof error.chapterNotes === 'string') return error.chapterNotes;
     // Add more specific checks if other error structures are common from your hooks
-    console.warn("[BibleReader] Received error object that couldn't be parsed into a specific message. Structure:", error);
+    // console.warn("[BibleReader] Received error object that couldn't be parsed into a specific message. Structure:", error);
     return 'An unexpected error occurred.'; // Fallback generic message
   };
 
@@ -400,15 +400,15 @@ const BibleReader = () => {
 
   // Log to help debug the "Objects are not valid as a React child" error
   if (currentBook !== null && typeof currentBook !== 'string') { // Check if not null AND not a string
-    console.error('[BibleReader] currentBook is not a string (and not null):', currentBook);
+    // console.error('[BibleReader] currentBook is not a string (and not null):', currentBook);
   }
   // currentChapter can be a number or string, so the existing check is mostly fine,
   // but let's ensure it's not an object either.
   if (currentChapter !== null && typeof currentChapter !== 'string' && typeof currentChapter !== 'number') {
-    console.error('[BibleReader] currentChapter is not a string or number (and not null):', currentChapter);
+    // console.error('[BibleReader] currentChapter is not a string or number (and not null):', currentChapter);
   }
   if (finalDisplayError && typeof finalDisplayError !== 'string') { // This should ideally not happen with getErrorMessage
-    console.error('[BibleReader] finalDisplayError is not a string (after getErrorMessage):', finalDisplayError);
+    // console.error('[BibleReader] finalDisplayError is not a string (after getErrorMessage):', finalDisplayError);
   }
 
   const handleOpenSidePanel = (verse) => {
