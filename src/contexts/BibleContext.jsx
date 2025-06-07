@@ -26,6 +26,8 @@ export const BibleProvider = ({ children }) => {
   const [currentBook, setCurrentBook] = useState(null);
   const [currentChapter, setCurrentChapter] = useState(1);
   const [verses, setVerses] = useState([]);
+  // Simple in-memory cache to avoid refetching verses we've already loaded
+  const [versesCache, setVersesCache] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   // chapterCount was unused, removing for now to simplify context value
@@ -119,17 +121,21 @@ export const BibleProvider = ({ children }) => {
         setIsLoading(false); // Ensure loading is set to false
         return;
     }
-    
+    const chapterKey = Number(chapter);
+    const cached = versesCache[book]?.[chapterKey];
+    if (cached) {
+      setVerses(cached);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null); // Clear previous errors before fetching verses
     try {
       const endpoint = `${API_BASE_URL}/verses/${book}/${chapter}`;
-      // console.log('Fetching verses from:', endpoint);
-      
       const response = await fetchWithTimeout(endpoint, {}, 60000);
       const data = await handleApiResponse(response, 'Failed to fetch verses');
-      // console.log('Parsed verses data:', data);
-      
+
       const processedVerses = Array.isArray(data) ? data.map(v => ({
         ...v,
         text: typeof v.text === 'string' ? v.text : '[Invalid Verse Text]'
@@ -139,6 +145,13 @@ export const BibleProvider = ({ children }) => {
         setError('Invalid verse data format from server.');
       }
       setVerses(processedVerses);
+      // Update cache
+      setVersesCache(prev => {
+        const newCache = { ...prev };
+        if (!newCache[book]) newCache[book] = {};
+        newCache[book][chapterKey] = processedVerses;
+        return newCache;
+      });
     } catch (err) {
       const errorMsg = `Failed to load verses for ${book} ${chapter}: ${err.message}`;
       console.error(errorMsg);
@@ -147,7 +160,7 @@ export const BibleProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE_URL, fetchWithTimeout, handleApiResponse]); 
+  }, [API_BASE_URL, fetchWithTimeout, handleApiResponse]);
 
   useEffect(() => {
     if (currentBook && currentChapter) {
@@ -176,6 +189,7 @@ export const BibleProvider = ({ children }) => {
     currentBook,
     currentChapter,
     verses,
+    versesCache,
     isLoading,
     error,
     setCurrentBook,
@@ -188,6 +202,7 @@ export const BibleProvider = ({ children }) => {
     currentBook,
     currentChapter,
     verses,
+    versesCache,
     isLoading,
     error,
     setCurrentBook, // technically stable, but good practice if value depends on it
