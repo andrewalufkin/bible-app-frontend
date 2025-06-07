@@ -25,7 +25,7 @@ In the frontend directory, you can run:
 
 #### `npm run dev`
 
-Runs the app in development mode using React Scripts.\
+Runs the app in development mode using React Scripts.
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
 #### `npm start`
