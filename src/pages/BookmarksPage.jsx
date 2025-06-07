@@ -14,7 +14,9 @@ const BookmarksPage = () => {
   };
 
   const navigateToVerse = (bookmark) => {
-    // Ensure chapter and verse are numbers for the path if necessary, though hook should handle string conversion
+    // Only the book and chapter are used to navigate here. Add the verse to the
+    // path or fragment (e.g., `#verse-${bookmark.verse}`) if you need to jump to
+    // a specific verse.
     navigate(`/bible/${encodeURIComponent(bookmark.book)}/${bookmark.chapter}`);
     // If you have functionality to scroll to a specific verse, you might pass bookmark.verse as well
     // e.g., navigate(`/bible/${bookmark.book}/${bookmark.chapter}#verse-${bookmark.verse}`);
