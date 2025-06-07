@@ -37,6 +37,8 @@ const BibleNavigation = () => {
     isLoading,
     setCurrentBook,
     setCurrentChapter,
+    chapterOptions,
+    getChapterCount,
   } = useBible();
   
   const [showDropdown, setShowDropdown] = useState(false);
@@ -68,11 +70,10 @@ const BibleNavigation = () => {
     return <LoadingState />;
   }
 
-  // Get number of chapters for current book
-  const chapters = Array.from(
-    { length: 50 }, // Default to 50 chapters as maximum
-    (_, i) => i + 1
-  );
+  // Get number of chapters for the current book using data from context
+  const chapters = chapterOptions.length > 0
+    ? chapterOptions
+    : Array.from({ length: getChapterCount(currentBook) }, (_, i) => i + 1);
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>
