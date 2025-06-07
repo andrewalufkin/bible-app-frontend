@@ -49,7 +49,11 @@ const NotesPage = () => {
   };
 
   const navigateToVerse = (note) => {
-    navigate(`/read/${note.book}/${note.chapter}/${note.verse}`);
+    let path = `/bible/${encodeURIComponent(note.book)}/${note.chapter}`;
+    if (note.verse) {
+      path += `#verse-${note.verse}`;
+    }
+    navigate(path);
   };
 
   const renderPagination = () => {
